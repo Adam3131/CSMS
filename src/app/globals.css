@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -12,15 +12,29 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  min-height: 100vh;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom form validation styles */
+input:user-invalid, select:user-invalid, textarea:user-invalid {
+  border-color: #dc2626 !important; /* red-600 */
+  background-color: #fef2f2 !important; /* red-50 */
+}
+
+/* Hide error message by default, display it when input is user-invalid */
+.error-msg {
+  display: none;
+  color: #dc2626; /* red-600 */
+}
+input:user-invalid ~ .error-msg, select:user-invalid ~ .error-msg, textarea:user-invalid ~ .error-msg {
+  display: flex !important;
+}
+
+/* Success status borders */
+input:user-valid:not(:placeholder-shown), select:user-valid, textarea:user-valid {
+  border-color: #16a34a !important; /* green-600 */
 }
