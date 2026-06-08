@@ -30,7 +30,8 @@ export default function DashboardPage() {
   // Step 1: General Info Form + PDF Preview
   // Step 2: HSE Plan - Form Proses 1 detailed scoring tables (page 1/8)
   // Step 3: HSE Plan - Form Proses 2 detailed scoring tables (page 2/8)
-  const [hsePlanStep, setHsePlanStep] = useState<1 | 2 | 3>(1);
+  // Step 4: HSE Plan - Form Proses 8 detailed scoring tables (page 8/8)
+  const [hsePlanStep, setHsePlanStep] = useState<1 | 2 | 3 | 4>(1);
 
   // HSE Plan Header Inputs
   const [vendorName, setVendorName] = useState("PT Warna SeBahtera");
@@ -66,12 +67,22 @@ export default function DashboardPage() {
     score3_9: 0, // KPI format Pertamina
   });
 
+  // HSE Plan Step 4 (Form Proses 8) Matrix Scores
+  const [matrixStep8Scores, setMatrixStep8Scores] = useState<Record<string, number>>({
+    score8_1: 0, // Menyampaikan program tinjauan
+    score8_2: 0, // Frekuensi Pelaksanaan tinjauan
+  });
+
   const handleMatrixChange = (key: string, val: number) => {
     setMatrixScores((prev) => ({ ...prev, [key]: val }));
   };
 
   const handleStep3MatrixChange = (key: string, val: number) => {
     setMatrixStep3Scores((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const handleStep8MatrixChange = (key: string, val: number) => {
+    setMatrixStep8Scores((prev) => ({ ...prev, [key]: val }));
   };
 
   // Computations for Step 2 Table 1 (Budaya HSSE)
@@ -116,6 +127,21 @@ export default function DashboardPage() {
   const totalProses2 = useMemo(() => {
     return parseFloat((step3Table1Total + step3Table2Total).toFixed(2));
   }, [step3Table1Total, step3Table2Total]);
+
+  // Computations for Step 4 Table 1 (Proses 8 Tinjauan)
+  const step8Total = useMemo(() => {
+    const sum = (matrixStep8Scores.score8_1 * 6) + (matrixStep8Scores.score8_2 * 2);
+    return parseFloat(sum.toFixed(2));
+  }, [matrixStep8Scores]);
+
+  const totalHsePlanScore = useMemo(() => {
+    return parseFloat((totalProses1 + totalProses2 + step8Total).toFixed(2));
+  }, [totalProses1, totalProses2, step8Total]);
+
+  const percentHsePlanScore = useMemo(() => {
+    if (totalHsePlanScore === 0) return "0%";
+    return Math.round((totalHsePlanScore / 292) * 100) + "%";
+  }, [totalHsePlanScore]);
 
   // Form states - PJA
   const [potensiBahaya, setPotensiBahaya] = useState("");
@@ -444,7 +470,7 @@ export default function DashboardPage() {
                   ? "All Documents"
                   : selectedCategory
                 : activeDocumentType === "HSE Plan"
-                ? `Step ${hsePlanStep} of 3`
+                ? `Step ${hsePlanStep} of 4`
                 : "Form Setup"}
             </span>
           </div>
@@ -1282,10 +1308,176 @@ export default function DashboardPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleDocumentSubmit("HSE Plan")}
+                            onClick={() => setHsePlanStep(4)}
                             className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]"
                           >
                             Next &gt;
+                          </button>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                  {hsePlanStep === 4 && (
+                    /* HSE Plan Step 4: Form Proses 8 scoring tables (page 8/8) */
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 gap-5 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm md:grid-cols-4">
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Vendor Name:</label>
+                          <input type="text" readOnly value={vendorName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Name:</label>
+                          <input type="text" readOnly value={projectName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Evaluation Date:</label>
+                          <input type="date" readOnly value={evaluationDate} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Evaluator:</label>
+                          <input type="text" readOnly value={evaluatorName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="md:col-span-4 text-right text-[10px] text-slate-400 font-medium pt-1">
+                          Last update: 5 Maret 2026
+                        </div>
+                      </div>
+
+                      {/* Process 8 Table Assessment */}
+                      <div className="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm space-y-6">
+                        <div className="flex items-center gap-3">
+                          <select className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-800 outline-none focus:bg-white">
+                            <option>PROSES 8. TINJAUAN</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-4">
+                          <p className="text-xs font-bold text-slate-700">1. HSSE Policy Dan Objective</p>
+                          
+                          <div className="overflow-x-auto rounded-xl border border-slate-100">
+                            <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                              <thead className="bg-slate-50 font-bold text-slate-500">
+                                <tr>
+                                  <th scope="col" className="px-4 py-3">KOMPONEN PENILAIAN HSE PLAN</th>
+                                  <th scope="col" className="px-4 py-3 w-20 text-center">BOBOT</th>
+                                  <th scope="col" className="px-4 py-3 w-32">Nilai Matriks</th>
+                                  <th scope="col" className="px-4 py-3 w-24 text-center">Nilai x Bobot</th>
+                                  <th scope="col" className="px-4 py-3 w-36">Keterangan</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
+                                {[
+                                  { key: "score8_1", bobot: 6, name: "Menyampaikan program tinjauan/ review terhadap implementasi HSSE Plan." },
+                                  { key: "score8_2", bobot: 2, name: "Frekuensi Pelaksanaan tinjauan sesuai dengan tabel periode yang ditetapkan Pertamina." },
+                                ].map((row) => (
+                                  <tr key={row.key} className="hover:bg-slate-50/50">
+                                    <td className="px-4 py-3 font-semibold text-slate-800">{row.name}</td>
+                                    <td className="px-4 py-3 text-center">{row.bobot}</td>
+                                    <td className="px-4 py-2">
+                                      <select
+                                        value={matrixStep8Scores[row.key]}
+                                        onChange={(e) => handleStep8MatrixChange(row.key, parseFloat(e.target.value))}
+                                        className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs outline-none focus:bg-white w-full"
+                                      >
+                                        <option value="0">0.00</option>
+                                        <option value="0.25">0.25</option>
+                                        <option value="0.50">0.50</option>
+                                        <option value="1.00">1.00</option>
+                                      </select>
+                                    </td>
+                                    <td className="px-4 py-3 text-center text-slate-900 font-bold">
+                                      {(matrixStep8Scores[row.key] * row.bobot).toFixed(2)}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <div className="flex items-center gap-2">
+                                        <input type="text" placeholder="Catatan..." className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1" />
+                                        <button type="button" className="text-slate-400 hover:text-slate-600 transition-colors">
+                                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                                
+                                {/* Total Proses 8 */}
+                                <tr className="bg-slate-50/50 font-bold">
+                                  <td className="px-4 py-3 text-right">Total Proses 8</td>
+                                  <td className="px-4 py-3 text-center"></td>
+                                  <td className="px-4 py-3"></td>
+                                  <td className="px-4 py-3 text-center text-slate-950 text-sm">{step8Total.toFixed(2)}</td>
+                                  <td className="px-4 py-3"></td>
+                                </tr>
+
+                                {/* Total BOBOT HSSE PLAN */}
+                                <tr className="bg-slate-50/50 font-bold">
+                                  <td className="px-4 py-3 text-right">Total BOBOT HSSE PLAN</td>
+                                  <td className="px-4 py-3 text-center"></td>
+                                  <td className="px-4 py-3"></td>
+                                  <td className="px-4 py-3 text-center text-slate-950 text-sm">292</td>
+                                  <td className="px-4 py-3"></td>
+                                </tr>
+
+                                {/* TOTAL PENCAPAIAN NILAI HSE PLAN */}
+                                <tr className="bg-slate-50/50 font-bold">
+                                  <td className="px-4 py-3 text-right">TOTAL PENCAPAIAN NILAI HSE PLAN</td>
+                                  <td className="px-4 py-3 text-center"></td>
+                                  <td className="px-4 py-3"></td>
+                                  <td className="px-4 py-3 text-center text-slate-950 text-sm">{totalHsePlanScore.toFixed(0)}</td>
+                                  <td className="px-4 py-3"></td>
+                                </tr>
+
+                                {/* % PENCAPAIAN NILAI HSE PLAN */}
+                                <tr className="bg-slate-50/50 font-bold">
+                                  <td className="px-4 py-3 text-right">% PENCAPAIAN NILAI HSE PLAN</td>
+                                  <td className="px-4 py-3 text-center"></td>
+                                  <td className="px-4 py-3"></td>
+                                  <td className="px-4 py-3 text-center text-slate-950 text-sm">{percentHsePlanScore}</td>
+                                  <td className="px-4 py-3"></td>
+                                </tr>
+
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* Page Indicator and Navigation */}
+                        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row border-t border-slate-100 pt-5">
+                          <button
+                            type="button"
+                            onClick={() => setHsePlanStep(3)}
+                            className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                          >
+                            &lt; Prev
+                          </button>
+                          
+                          <div className="text-xs text-slate-400 font-semibold select-none">
+                            &lt; 8/8 &gt;
+                          </div>
+
+                          <div></div>
+                        </div>
+
+                        {/* Total Semua Proses section full width */}
+                        <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden flex text-xs">
+                          <div className="bg-slate-100 text-slate-700 font-bold px-6 py-3.5 w-2/3 border-r border-slate-200 text-right uppercase">
+                            Total Semua Proses
+                          </div>
+                          <div className="bg-white text-slate-900 font-bold px-6 py-3.5 w-1/3 text-center text-sm">
+                            {totalHsePlanScore.toFixed(2)}
+                          </div>
+                        </div>
+
+                        {/* Large Full Width Submit Button */}
+                        <div className="pt-4">
+                          <button
+                            type="button"
+                            onClick={() => handleDocumentSubmit("HSE Plan")}
+                            className="w-full py-4 bg-white border border-slate-200 text-slate-800 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors active:scale-[0.99] tracking-wider uppercase text-center"
+                          >
+                            Submit
                           </button>
                         </div>
 
