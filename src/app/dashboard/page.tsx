@@ -143,6 +143,10 @@ export default function DashboardPage() {
     return Math.round((totalHsePlanScore / 292) * 100) + "%";
   }, [totalHsePlanScore]);
 
+  // PJA Wizard State:
+  const [pjaStep, setPjaStep] = useState<1 | 2>(1);
+  const [pjaBidangUsaha, setPjaBidangUsaha] = useState("Jasa Pelayaran & Pengangkutan Gas");
+
   // Form states - PJA
   const [potensiBahaya, setPotensiBahaya] = useState("");
   const [tindakanPencegahan, setTindakanPencegahan] = useState("");
@@ -312,6 +316,7 @@ export default function DashboardPage() {
     setCurrentView("overview");
     setSelectedCategory("All");
     setHsePlanStep(1);
+    setPjaStep(1);
   };
 
   return (
@@ -388,6 +393,7 @@ export default function DashboardPage() {
                   setActiveDocumentType(cat.id as any);
                   setCurrentView("create-document");
                   setHsePlanStep(1); // Default to step 1
+                  setPjaStep(1); // Default to step 1
                 }}
                 className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all ${
                   selectedCategory === cat.id && currentView === "create-document"
@@ -471,6 +477,8 @@ export default function DashboardPage() {
                   : selectedCategory
                 : activeDocumentType === "HSE Plan"
                 ? `Step ${hsePlanStep} of 4`
+                : activeDocumentType === "PJA"
+                ? `Step ${pjaStep} of 2`
                 : "Form Setup"}
             </span>
           </div>
@@ -1491,79 +1499,207 @@ export default function DashboardPage() {
               {/* DOCUMENT PATH B: PJA WORKFLOW (1 STEP) */}
               {/* ============================================== */}
               {activeDocumentType === "PJA" && (
-                <div className="rounded-2xl border border-slate-200/60 bg-white p-8 shadow-sm">
-                  <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                    <form ref={formRef} onSubmit={(e) => { e.preventDefault(); handleDocumentSubmit("PJA"); }} className="space-y-5" noValidate>
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3">Create Pre-Job Assessment (PJA)</h3>
+                <div className="space-y-6">
+                  {/* PJA Header Card */}
+                  <div className="grid grid-cols-1 gap-5 rounded-2xl border border-slate-200/60 bg-blue-50/50 p-6 shadow-sm md:grid-cols-3">
+                    <div className="md:col-span-2 space-y-2.5">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Pre Job Assesment</label>
+                      <textarea
+                        readOnly
+                        value={projectName}
+                        rows={2}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none resize-none cursor-not-allowed leading-relaxed focus:ring-0"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 border-l border-slate-100 pl-6 md:grid-cols-1 md:border-l md:pl-6 md:space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</label>
+                        <div className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">On Review by PIC</div>
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Judul Pekerjaan</label>
-                        <input type="text" readOnly value={projectName} className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 outline-none cursor-not-allowed" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="potensi-bahaya" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Identifikasi Potensi Bahaya</label>
-                        <textarea id="potensi-bahaya" required rows={3} placeholder="Sebutkan potensi bahaya di lingkungan kerja..." value={potensiBahaya} onChange={(e) => setPotensiBahaya(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                        <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Potensi bahaya diperlukan.</div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="mitigasi" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tindakan Pencegahan / Mitigasi</label>
-                        <textarea id="mitigasi" required rows={3} placeholder="Masukkan rencana pencegahan risiko..." value={tindakanPencegahan} onChange={(e) => setTindakanPencegahan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                        <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Rencana mitigasi diperlukan.</div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="apd" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Alat Pelindung Diri (APD) Wajib</label>
-                        <input type="text" id="apd" required placeholder="Contoh: Safety Helmet, Harness, Vest..." value={apdDiperlukan} onChange={(e) => setApdDiperlukan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                        <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">APD wajib diperlukan.</div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="tgl-pja" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tanggal Assessment PJA</label>
-                        <input type="date" id="tgl-pja" required value={tanggalPJA} onChange={(e) => setTanggalPJA(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                        <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Tanggal assessment diperlukan.</div>
-                      </div>
-                    </form>
-
-                    <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-6">
-                      <div className="space-y-4">
-                        <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Document Preview (PJA)</span>
-                        <div className="relative border border-slate-300 rounded-lg bg-white p-6 shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between text-slate-800 text-[8px] leading-relaxed select-none">
-                          <div className="flex items-center justify-between border-b border-blue-900 pb-2">
-                            <div className="text-left font-bold text-blue-900 text-[10px]">PERTAMINA</div>
-                            <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-PJA-02</div>
-                          </div>
-                          <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
-                            <p className="text-[9px]">PJA CHECKLIST REPORT</p>
-                            <p className="text-[8px] text-blue-950">ANALISIS POTENSI BAHAYA DI WILAYAH OPERASIONAL</p>
-                          </div>
-                          <div className="flex-1 space-y-2 py-2 text-slate-600">
-                            <p className="text-[7px]">Bahaya teridentifikasi: {potensiBahaya || "[Belum diisi]"}</p>
-                            <p className="text-[7px]">Tindakan mitigasi: {tindakanPencegahan || "[Belum diisi]"}</p>
-                            <p className="text-[7px]">APD Wajib: {apdDiperlukan || "[Belum diisi]"}</p>
-                          </div>
-                          <div className="flex justify-end pt-2">
-                            <div className="text-right w-24">
-                              <p className="font-bold text-slate-800">Evaluator</p>
-                              <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300">Signature</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-700 font-bold text-xs shrink-0">PDF</span>
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-900 truncate">Pre Job Assessment Form.pdf</p>
-                              <p className="text-[10px] text-slate-400">2.4 MB</p>
-                            </div>
-                          </div>
-                          <button type="button" onClick={() => alert("Simulating PDF full view...")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50">View File</button>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-end gap-3 mt-6 border-t border-slate-200 pt-4">
-                        <button type="button" onClick={() => { setCurrentView("overview"); setSelectedCategory("All"); }} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50">Cancel</button>
-                        <button type="button" onClick={() => handleDocumentSubmit("PJA")} className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]">Finish & Submit</button>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Last edit</label>
+                        <div className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">22 February 2026</div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Step 1: PJA Form Details */}
+                  {pjaStep === 1 && (
+                    <div className="rounded-2xl border border-slate-200/60 bg-white p-8 shadow-sm">
+                      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                        <form className="space-y-5 animate-fade-in" onSubmit={(e) => { e.preventDefault(); setPjaStep(2); }}>
+                          <div>
+                            <h3 className="text-xl font-bold text-slate-900">PJA Form</h3>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nama Perusahaan</label>
+                            <input type="text" readOnly value={vendorName} className="block w-full rounded-xl border border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-500 outline-none cursor-not-allowed" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="pja-bidang" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Bidang Usaha</label>
+                            <input type="text" id="pja-bidang" required placeholder="Masukkan bidang usaha..." value={pjaBidangUsaha} onChange={(e) => setPjaBidangUsaha(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Bidang usaha diperlukan.</div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Judul Pekerjaan</label>
+                            <input type="text" readOnly value={projectName} className="block w-full rounded-xl border border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-500 outline-none cursor-not-allowed" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="pja-tgl-verif" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tanggal Verifikasi</label>
+                            <input type="date" id="pja-tgl-verif" required value={evaluationDate} onChange={(e) => setEvaluationDate(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Tanggal verifikasi diperlukan.</div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="pja-evaluator-name" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nama Evaluator</label>
+                            <input type="text" id="pja-evaluator-name" required placeholder="Masukkan nama evaluator..." value={evaluatorName} onChange={(e) => setEvaluatorName(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Nama evaluator diperlukan.</div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="pja-pic-jab" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">PIC - Jabatan</label>
+                            <input type="text" id="pja-pic-jab" required placeholder="Masukkan jabatan PIC..." value={picJabatan} onChange={(e) => setPicJabatan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">PIC - Jabatan diperlukan.</div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="pja-lokasi-pekerjaan" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Lokasi Pekerjaan</label>
+                            <input type="text" id="pja-lokasi-pekerjaan" required placeholder="Masukkan lokasi pekerjaan..." value={lokasiPekerjaan} onChange={(e) => setLokasiPekerjaan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Lokasi pekerjaan diperlukan.</div>
+                          </div>
+                        </form>
+
+                        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                          <div className="space-y-4">
+                            <div className="relative border border-slate-300 rounded-lg bg-white p-6 shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between text-slate-800 text-[8px] leading-relaxed select-none">
+                              <div className="flex items-center justify-between border-b border-blue-900 pb-2">
+                                <div className="text-left font-bold text-blue-900 text-[10px]">PERTAMINA</div>
+                                <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-CSMS-01</div>
+                              </div>
+                              <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
+                                <p className="text-[9px]">Surat Keputusan</p>
+                                <p className="text-[7px] text-slate-500">No. Kpts - 24 / C00000/2026-S0</p>
+                                <p className="text-[8px] tracking-tight text-blue-950 mt-1">TENTANG PEMBERLAKUAN PEDOMAN CONTRACTOR SAFETY MANAGEMENT SYSTEM (CSMS)</p>
+                              </div>
+                              <div className="flex-1 space-y-2 py-2 text-slate-600">
+                                <p className="font-semibold text-slate-800">DIREKTUR UTAMA PT PERTAMINA (PERSERO),</p>
+                                <p className="text-[7px]">Sistem Manajemen Keselamatan Kontraktor (CSMS) wajib dipenuhi untuk memitigasi seluruh aktivitas operasional di kapal VLGC Laycan.</p>
+                              </div>
+                              <div className="flex justify-end pt-2">
+                                <div className="text-right w-24">
+                                  <p>Jakarta, 2026</p>
+                                  <p className="font-bold text-slate-800">Direktur Utama</p>
+                                  <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300">Signature</div>
+                                  <p className="font-bold text-slate-800 underline">Nicke Widyawati</p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col gap-3">
+                              <div className="text-[9px] text-slate-500 font-semibold leading-normal break-all">
+                                {projectName}.pdf
+                              </div>
+                              <div className="flex justify-end">
+                                <button type="button" onClick={() => alert("Simulating PDF full view...")} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 shadow-sm active:scale-[0.98]">View File</button>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-end mt-8 pt-4 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (pjaBidangUsaha && lokasiPekerjaan && picJabatan && evaluatorName) {
+                                  setPjaStep(2);
+                                } else {
+                                  alert("Harap lengkapi semua bidang isian formulir.");
+                                }
+                              }}
+                              className="rounded-lg border border-slate-300 bg-white px-8 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 shadow-sm active:scale-[0.98]"
+                            >
+                              Continue
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 2: PJA Assessment Questionnaire */}
+                  {pjaStep === 2 && (
+                    <div className="rounded-2xl border border-slate-200/60 bg-white p-8 shadow-sm">
+                      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                        <form ref={formRef} onSubmit={(e) => { e.preventDefault(); handleDocumentSubmit("PJA"); }} className="space-y-5" noValidate>
+                          <div>
+                            <h3 className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-3">Pre-Job Assessment (PJA) Questionnaire</h3>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Judul Pekerjaan</label>
+                            <input type="text" readOnly value={projectName} className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 outline-none cursor-not-allowed" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="potensi-bahaya" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Identifikasi Potensi Bahaya</label>
+                            <textarea id="potensi-bahaya" required rows={3} placeholder="Sebutkan potensi bahaya di lingkungan kerja..." value={potensiBahaya} onChange={(e) => setPotensiBahaya(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Potensi bahaya diperlukan.</div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="mitigasi" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tindakan Pencegahan / Mitigasi</label>
+                            <textarea id="mitigasi" required rows={3} placeholder="Masukkan rencana pencegahan risiko..." value={tindakanPencegahan} onChange={(e) => setTindakanPencegahan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Rencana mitigasi diperlukan.</div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="apd" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Alat Pelindung Diri (APD) Wajib</label>
+                            <input type="text" id="apd" required placeholder="Contoh: Safety Helmet, Harness, Vest..." value={apdDiperlukan} onChange={(e) => setApdDiperlukan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">APD wajib diperlukan.</div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label htmlFor="tgl-pja" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tanggal Assessment PJA</label>
+                            <input type="date" id="tgl-pja" required value={tanggalPJA} onChange={(e) => setTanggalPJA(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Tanggal assessment diperlukan.</div>
+                          </div>
+                        </form>
+
+                        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+                          <div className="space-y-4">
+                            <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Document Preview (PJA)</span>
+                            <div className="relative border border-slate-300 rounded-lg bg-white p-6 shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between text-slate-800 text-[8px] leading-relaxed select-none">
+                              <div className="flex items-center justify-between border-b border-blue-900 pb-2">
+                                <div className="text-left font-bold text-blue-900 text-[10px]">PERTAMINA</div>
+                                <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-PJA-02</div>
+                              </div>
+                              <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
+                                <p className="text-[9px]">PJA CHECKLIST REPORT</p>
+                                <p className="text-[8px] text-blue-950">ANALISIS POTENSI BAHAYA DI WILAYAH OPERASIONAL</p>
+                              </div>
+                              <div className="flex-1 space-y-2 py-2 text-slate-600">
+                                <p className="text-[7px]">Bidang Usaha: {pjaBidangUsaha}</p>
+                                <p className="text-[7px]">Bahaya teridentifikasi: {potensiBahaya || "[Belum diisi]"}</p>
+                                <p className="text-[7px]">Tindakan mitigasi: {tindakanPencegahan || "[Belum diisi]"}</p>
+                                <p className="text-[7px]">APD Wajib: {apdDiperlukan || "[Belum diisi]"}</p>
+                              </div>
+                              <div className="flex justify-end pt-2">
+                                <div className="text-right w-24">
+                                  <p className="font-bold text-slate-800">Evaluator</p>
+                                  <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300">Signature</div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-700 font-bold text-xs shrink-0">PDF</span>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-slate-900 truncate">Pre Job Assessment Form.pdf</p>
+                                  <p className="text-[10px] text-slate-400">2.4 MB</p>
+                                </div>
+                              </div>
+                              <button type="button" onClick={() => alert("Simulating PDF full view...")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50">View File</button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-3 mt-6 border-t border-slate-200 pt-4">
+                            <button type="button" onClick={() => setPjaStep(1)} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50">&lt; Prev</button>
+                            <button type="button" onClick={() => { if (formRef.current?.checkValidity()) { handleDocumentSubmit("PJA"); } else { formRef.current?.reportValidity(); } }} className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]">Finish & Submit</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
