@@ -144,8 +144,89 @@ export default function DashboardPage() {
   }, [totalHsePlanScore]);
 
   // PJA Wizard State:
-  const [pjaStep, setPjaStep] = useState<1 | 2>(1);
+  const [pjaStep, setPjaStep] = useState<1 | 2 | 3>(1);
   const [pjaBidangUsaha, setPjaBidangUsaha] = useState("Jasa Pelayaran & Pengangkutan Gas");
+  const [pjaAnswers, setPjaAnswers] = useState<Record<string, "YES" | "NO" | "NO_NEED" | null>>({
+    scoreP1_1: null,
+    scoreP1_2: null,
+    scoreP1_3: null,
+    scoreP1_4: null,
+    scoreP2_1: null,
+    scoreP2_2: null,
+    scoreP7_1: null,
+    scoreP7_2: null,
+  });
+  const [pjaNotes, setPjaNotes] = useState<Record<string, string>>({
+    scoreP1_1: "",
+    scoreP1_2: "",
+    scoreP1_3: "",
+    scoreP1_4: "",
+    scoreP2_1: "",
+    scoreP2_2: "",
+    scoreP7_1: "",
+    scoreP7_2: "",
+  });
+  const [pjaDueDate, setPjaDueDate] = useState("");
+  const [pjaKeteranganP7, setPjaKeteranganP7] = useState("1. \n2. ");
+
+  const handlePjaAnswerChange = (key: string, val: "YES" | "NO" | "NO_NEED" | null) => {
+    setPjaAnswers((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const handlePjaNoteChange = (key: string, val: string) => {
+    setPjaNotes((prev) => ({ ...prev, [key]: val }));
+  };
+
+  // PJA calculations
+  const pjaP1Totals = useMemo(() => {
+    let yes = 0;
+    let no = 0;
+    let noNeed = 0;
+    const keys = ["scoreP1_1", "scoreP1_2", "scoreP1_3", "scoreP1_4"];
+    keys.forEach((key) => {
+      if (pjaAnswers[key] === "YES") yes++;
+      else if (pjaAnswers[key] === "NO") no++;
+      else if (pjaAnswers[key] === "NO_NEED") noNeed++;
+    });
+    return {
+      yes: parseFloat(yes.toFixed(2)),
+      no: parseFloat(no.toFixed(2)),
+      noNeed: parseFloat(noNeed.toFixed(2)),
+    };
+  }, [pjaAnswers]);
+
+  const pjaP7Totals = useMemo(() => {
+    let yes = 0;
+    let no = 0;
+    let noNeed = 0;
+    const keys = ["scoreP7_1", "scoreP7_2"];
+    keys.forEach((key) => {
+      if (pjaAnswers[key] === "YES") yes++;
+      else if (pjaAnswers[key] === "NO") no++;
+      else if (pjaAnswers[key] === "NO_NEED") noNeed++;
+    });
+    
+    // Percentage calculations based on active (non-NO_NEED) questions
+    const denominator = 2 - noNeed;
+    const yesPct = denominator > 0 ? Math.round((yes / denominator) * 100) : 0;
+    const noPct = denominator > 0 ? Math.round((no / denominator) * 100) : 0;
+
+    return {
+      yes: parseFloat(yes.toFixed(2)),
+      no: parseFloat(no.toFixed(2)),
+      noNeed: parseFloat(noNeed.toFixed(2)),
+      yesPct,
+      noPct,
+    };
+  }, [pjaAnswers]);
+
+  const pjaTotalSemuaProses = useMemo(() => {
+    let yesCount = 0;
+    Object.values(pjaAnswers).forEach((val) => {
+      if (val === "YES") yesCount++;
+    });
+    return parseFloat(yesCount.toFixed(2));
+  }, [pjaAnswers]);
 
   // Form states - PJA
   const [potensiBahaya, setPotensiBahaya] = useState("");
@@ -154,6 +235,48 @@ export default function DashboardPage() {
   const [tanggalPJA, setTanggalPJA] = useState("");
 
   // Form states - WIP
+  const [wipStep, setWipStep] = useState<1 | 2 | 3>(1);
+  const [wipAssessmentStage, setWipAssessmentStage] = useState("");
+  const [wipNamaPerusahaan, setWipNamaPerusahaan] = useState("PT Warna SeBahtera");
+  const [wipJenisPekerjaan, setWipJenisPekerjaan] = useState("Jasa Pelayaran & Pengangkutan Gas");
+  const [wipLokasiPekerjaan, setWipLokasiPekerjaan] = useState("");
+  const [wipTanggalPenilaian, setWipTanggalPenilaian] = useState("");
+  const [wipEvaluator, setWipEvaluator] = useState("PUTRI FATIMA SUNNIA");
+  const [wipStatus, setWipStatus] = useState("On Review by PIC");
+  const [wipLastEdit, setWipLastEdit] = useState("22 February 2026");
+
+  // Indicator States - WIP Step 2
+  const [wipLagging, setWipLagging] = useState<Record<string, { target: string; actual: string; sanksi: string }>>({
+    row1: { target: "", actual: "", sanksi: "" },
+    row2: { target: "", actual: "", sanksi: "" },
+    row3: { target: "", actual: "", sanksi: "" },
+  });
+  const [wipLeading, setWipLeading] = useState<Record<string, { target: string; actual: string; sanksi: string }>>({
+    row1: { target: "", actual: "", sanksi: "" },
+    row2: { target: "", actual: "", sanksi: "" },
+    row3: { target: "", actual: "", sanksi: "" },
+    row4: { target: "", actual: "", sanksi: "" },
+    row5: { target: "", actual: "", sanksi: "" },
+    row6: { target: "", actual: "", sanksi: "" },
+    row7: { target: "", actual: "", sanksi: "" },
+  });
+
+  // Indicator States - WIP Step 3
+  const [wipPjaIndicators, setWipPjaIndicators] = useState<Record<string, { target: string; actual: string; sanksi: string }>>({
+    row1: { target: "", actual: "", sanksi: "" },
+    row2: { target: "", actual: "", sanksi: "" },
+    row3: { target: "", actual: "", sanksi: "" },
+  });
+  const [wipLeadingStep3, setWipLeadingStep3] = useState<Record<string, { target: string; actual: string; sanksi: string }>>({
+    row1: { target: "", actual: "", sanksi: "" },
+    row2: { target: "", actual: "", sanksi: "" },
+    row3: { target: "", actual: "", sanksi: "" },
+    row4: { target: "", actual: "", sanksi: "" },
+    row5: { target: "", actual: "", sanksi: "" },
+    row6: { target: "", actual: "", sanksi: "" },
+    row7: { target: "", actual: "", sanksi: "" },
+  });
+  
   const [deskripsiAktivitas, setDeskripsiAktivitas] = useState("");
   const [patrolSafety, setPatrolSafety] = useState("");
   const [safeManHours, setSafeManHours] = useState("");
@@ -317,6 +440,66 @@ export default function DashboardPage() {
     setSelectedCategory("All");
     setHsePlanStep(1);
     setPjaStep(1);
+    setWipStep(1);
+    setWipAssessmentStage("");
+    setWipNamaPerusahaan("PT Warna SeBahtera");
+    setWipJenisPekerjaan("Jasa Pelayaran & Pengangkutan Gas");
+    setWipLokasiPekerjaan("");
+    setWipTanggalPenilaian("");
+    setWipEvaluator("PUTRI FATIMA SUNNIA");
+    setDeskripsiAktivitas("");
+    setPatrolSafety("");
+    setSafeManHours("");
+    setWipLagging({
+      row1: { target: "", actual: "", sanksi: "" },
+      row2: { target: "", actual: "", sanksi: "" },
+      row3: { target: "", actual: "", sanksi: "" },
+    });
+    setWipLeading({
+      row1: { target: "", actual: "", sanksi: "" },
+      row2: { target: "", actual: "", sanksi: "" },
+      row3: { target: "", actual: "", sanksi: "" },
+      row4: { target: "", actual: "", sanksi: "" },
+      row5: { target: "", actual: "", sanksi: "" },
+      row6: { target: "", actual: "", sanksi: "" },
+      row7: { target: "", actual: "", sanksi: "" },
+    });
+    setWipPjaIndicators({
+      row1: { target: "", actual: "", sanksi: "" },
+      row2: { target: "", actual: "", sanksi: "" },
+      row3: { target: "", actual: "", sanksi: "" },
+    });
+    setWipLeadingStep3({
+      row1: { target: "", actual: "", sanksi: "" },
+      row2: { target: "", actual: "", sanksi: "" },
+      row3: { target: "", actual: "", sanksi: "" },
+      row4: { target: "", actual: "", sanksi: "" },
+      row5: { target: "", actual: "", sanksi: "" },
+      row6: { target: "", actual: "", sanksi: "" },
+      row7: { target: "", actual: "", sanksi: "" },
+    });
+    setPjaAnswers({
+      scoreP1_1: null,
+      scoreP1_2: null,
+      scoreP1_3: null,
+      scoreP1_4: null,
+      scoreP2_1: null,
+      scoreP2_2: null,
+      scoreP7_1: null,
+      scoreP7_2: null,
+    });
+    setPjaNotes({
+      scoreP1_1: "",
+      scoreP1_2: "",
+      scoreP1_3: "",
+      scoreP1_4: "",
+      scoreP2_1: "",
+      scoreP2_2: "",
+      scoreP7_1: "",
+      scoreP7_2: "",
+    });
+    setPjaDueDate("");
+    setPjaKeteranganP7("1. \n2. ");
   };
 
   return (
@@ -394,6 +577,7 @@ export default function DashboardPage() {
                   setCurrentView("create-document");
                   setHsePlanStep(1); // Default to step 1
                   setPjaStep(1); // Default to step 1
+                  setWipStep(1); // Default to step 1
                 }}
                 className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all ${
                   selectedCategory === cat.id && currentView === "create-document"
@@ -478,7 +662,9 @@ export default function DashboardPage() {
                 : activeDocumentType === "HSE Plan"
                 ? `Step ${hsePlanStep} of 4`
                 : activeDocumentType === "PJA"
-                ? `Step ${pjaStep} of 2`
+                ? `Step ${pjaStep} of 3`
+                : activeDocumentType === "WIP"
+                ? `Step ${wipStep} of 3`
                 : "Form Setup"}
             </span>
           </div>
@@ -509,14 +695,14 @@ export default function DashboardPage() {
           </div>
 
           {/* Breadcrumb indicator */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-slate-400 bg-white border border-slate-100 rounded-xl px-5 py-3 shadow-sm">
-            <span className={activeDocumentType === "HSE Plan" && currentView === "create-document" ? "text-red-600 font-extrabold" : "text-red-500"}>HSE Plan</span>
-            <span className="text-slate-300">•</span>
-            <span className={activeDocumentType === "PJA" && currentView === "create-document" ? "text-blue-600 font-extrabold" : "text-blue-500"}>Pre-Job Assessment</span>
-            <span className="text-slate-300">•</span>
-            <span className={activeDocumentType === "WIP" && currentView === "create-document" ? "text-amber-600 font-extrabold" : "text-amber-500"}>Work In Progress</span>
-            <span className="text-slate-300">•</span>
-            <span className={activeDocumentType === "FE" && currentView === "create-document" ? "text-green-600 font-extrabold" : "text-green-500"}>Final Evaluation</span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-400/80 px-2 py-1 select-none">
+            <span className={activeDocumentType === "HSE Plan" && currentView === "create-document" ? "text-red-500 font-bold" : ""}>HSE Plan</span>
+            <span className="text-slate-300 mx-1">-</span>
+            <span className={activeDocumentType === "PJA" && currentView === "create-document" ? "text-blue-500 font-bold" : ""}>Pre Job Assesment</span>
+            <span className="text-slate-300 mx-1">-</span>
+            <span className={activeDocumentType === "WIP" && currentView === "create-document" ? "text-slate-700 font-bold" : ""}>Work In Progress</span>
+            <span className="text-slate-300 mx-1">-</span>
+            <span className={activeDocumentType === "FE" && currentView === "create-document" ? "text-green-500 font-bold" : ""}>Final Evaluation</span>
           </div>
 
           {currentView === "overview" ? (
@@ -539,6 +725,8 @@ export default function DashboardPage() {
                       setActiveDocumentType(kpi.id as any);
                       setCurrentView("create-document");
                       setHsePlanStep(1);
+                      setPjaStep(1);
+                      setWipStep(1);
                     }}
                     className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md hover:border-slate-300 text-left"
                   >
@@ -714,6 +902,8 @@ export default function DashboardPage() {
                           setActiveDocumentType(cat as any);
                           setCurrentView("create-document");
                           setHsePlanStep(1);
+                          setPjaStep(1);
+                          setWipStep(1);
                         }
                       }}
                       className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all ${
@@ -1624,79 +1814,707 @@ export default function DashboardPage() {
 
                   {/* Step 2: PJA Assessment Questionnaire */}
                   {pjaStep === 2 && (
-                    <div className="rounded-2xl border border-slate-200/60 bg-white p-8 shadow-sm">
-                      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                        <form ref={formRef} onSubmit={(e) => { e.preventDefault(); handleDocumentSubmit("PJA"); }} className="space-y-5" noValidate>
-                          <div>
-                            <h3 className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-3">Pre-Job Assessment (PJA) Questionnaire</h3>
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Judul Pekerjaan</label>
-                            <input type="text" readOnly value={projectName} className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 outline-none cursor-not-allowed" />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label htmlFor="potensi-bahaya" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Identifikasi Potensi Bahaya</label>
-                            <textarea id="potensi-bahaya" required rows={3} placeholder="Sebutkan potensi bahaya di lingkungan kerja..." value={potensiBahaya} onChange={(e) => setPotensiBahaya(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Potensi bahaya diperlukan.</div>
-                          </div>
-                          <div className="space-y-1.5">
-                            <label htmlFor="mitigasi" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tindakan Pencegahan / Mitigasi</label>
-                            <textarea id="mitigasi" required rows={3} placeholder="Masukkan rencana pencegahan risiko..." value={tindakanPencegahan} onChange={(e) => setTindakanPencegahan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Rencana mitigasi diperlukan.</div>
-                          </div>
-                          <div className="space-y-1.5">
-                            <label htmlFor="apd" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Alat Pelindung Diri (APD) Wajib</label>
-                            <input type="text" id="apd" required placeholder="Contoh: Safety Helmet, Harness, Vest..." value={apdDiperlukan} onChange={(e) => setApdDiperlukan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">APD wajib diperlukan.</div>
-                          </div>
-                          <div className="space-y-1.5">
-                            <label htmlFor="tgl-pja" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tanggal Assessment PJA</label>
-                            <input type="date" id="tgl-pja" required value={tanggalPJA} onChange={(e) => setTanggalPJA(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Tanggal assessment diperlukan.</div>
-                          </div>
-                        </form>
+                    <div className="space-y-6 animate-fade-in">
+                      {/* PJA Header Card inside Step 2 */}
+                      <div className="grid grid-cols-1 gap-5 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm md:grid-cols-4">
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Vendor Name:</label>
+                          <input type="text" readOnly value={projectName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Name:</label>
+                          <input type="text" readOnly value={projectName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Evaluation Date:</label>
+                          <input type="date" value={evaluationDate} onChange={(e) => setEvaluationDate(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition-all focus:border-blue-500" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Evaluator:</label>
+                          <input type="text" readOnly value={evaluatorName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="md:col-span-4 text-right text-[10px] text-slate-400 font-medium pt-1">
+                          Last update: 5 Maret 2026
+                        </div>
+                      </div>
 
-                        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-                          <div className="space-y-4">
-                            <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Document Preview (PJA)</span>
-                            <div className="relative border border-slate-300 rounded-lg bg-white p-6 shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between text-slate-800 text-[8px] leading-relaxed select-none">
-                              <div className="flex items-center justify-between border-b border-blue-900 pb-2">
-                                <div className="text-left font-bold text-blue-900 text-[10px]">PERTAMINA</div>
-                                <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-PJA-02</div>
-                              </div>
-                              <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
-                                <p className="text-[9px]">PJA CHECKLIST REPORT</p>
-                                <p className="text-[8px] text-blue-950">ANALISIS POTENSI BAHAYA DI WILAYAH OPERASIONAL</p>
-                              </div>
-                              <div className="flex-1 space-y-2 py-2 text-slate-600">
-                                <p className="text-[7px]">Bidang Usaha: {pjaBidangUsaha}</p>
-                                <p className="text-[7px]">Bahaya teridentifikasi: {potensiBahaya || "[Belum diisi]"}</p>
-                                <p className="text-[7px]">Tindakan mitigasi: {tindakanPencegahan || "[Belum diisi]"}</p>
-                                <p className="text-[7px]">APD Wajib: {apdDiperlukan || "[Belum diisi]"}</p>
-                              </div>
-                              <div className="flex justify-end pt-2">
-                                <div className="text-right w-24">
-                                  <p className="font-bold text-slate-800">Evaluator</p>
-                                  <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300">Signature</div>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-700 font-bold text-xs shrink-0">PDF</span>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-semibold text-slate-900 truncate">Pre Job Assessment Form.pdf</p>
-                                  <p className="text-[10px] text-slate-400">2.4 MB</p>
-                                </div>
-                              </div>
-                              <button type="button" onClick={() => alert("Simulating PDF full view...")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50">View File</button>
+                      {/* Process Tables box */}
+                      <div className="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm space-y-6">
+                        
+                        {/* Process 1 Section */}
+                        <div className="space-y-4">
+                          <div className="inline-flex rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-800 border border-slate-200 select-none">
+                            Proses 1 : Kepemimpinan dan Akuntabilitas
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <p className="text-xs font-bold text-slate-700">1. Keterlibatan Manajemen</p>
+                            <div className="overflow-x-auto rounded-xl border border-slate-100">
+                              <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                                <thead className="bg-slate-50 font-bold text-slate-500">
+                                  <tr>
+                                    <th scope="col" className="px-4 py-3">KOMPONEN PENILAIAN HSE PLAN</th>
+                                    <th scope="col" className="px-2 py-3 w-16 text-center">YES</th>
+                                    <th scope="col" className="px-2 py-3 w-16 text-center">NO</th>
+                                    <th scope="col" className="px-2 py-3 w-20 text-center">NO NEED</th>
+                                    <th scope="col" className="px-4 py-3 w-64">Keterangan</th>
+                                    <th scope="col" className="px-4 py-3 w-12 text-center"></th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
+                                  {[
+                                    { key: "scoreP1_1", name: "Apakah Program HSSE yang melibatkan manajemen (MWT, Rapat HSSE, mempromosikan budaya HSSE, Penerapan Corporate Life Saving Rules (CLSR) Pertamina, Pengamatan Keselamatan Kerja, dll) untuk pelaksanaan pekerjaan kontrak telah tersedia dan ditandatangani oleh Manajemen Pelaksana Kontrak?" },
+                                    { key: "scoreP1_2", name: "Apakah Manajemen Pelaksana Kontrak telah terlibat dalam Kick Off meeting yang membahas kesiapan pelaksanaan HSSE Plan sebelum pekerjaan dimulai?" },
+                                    { key: "scoreP1_3", name: "Apakah HSSE Plan yang sudah disetujui oleh FPP Pertamina telah ditandatangani oleh Manajemen Pelaksana Kontrak yang berwenang?" },
+                                  ].map((row) => (
+                                    <tr key={row.key} className="hover:bg-slate-50/50">
+                                      <td className="px-4 py-3.5 font-semibold text-slate-800 leading-relaxed max-w-sm">{row.name}</td>
+                                      {/* YES checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "YES" ? null : "YES")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "YES"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "YES" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* NO checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO" ? null : "NO")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* NO NEED checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO_NEED" ? null : "NO_NEED")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO_NEED"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO_NEED" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* Keterangan input */}
+                                      <td className="px-4 py-2">
+                                        <input
+                                          type="text"
+                                          placeholder="Keterangan..."
+                                          value={pjaNotes[row.key]}
+                                          onChange={(e) => handlePjaNoteChange(row.key, e.target.value)}
+                                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1 transition-all"
+                                        />
+                                      </td>
+                                      <td className="px-2 py-3.5 text-center text-slate-400 hover:text-slate-600 transition-colors">
+                                        <svg className="h-4 w-4 inline cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
-                          <div className="flex items-center justify-end gap-3 mt-6 border-t border-slate-200 pt-4">
-                            <button type="button" onClick={() => setPjaStep(1)} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50">&lt; Prev</button>
-                            <button type="button" onClick={() => { if (formRef.current?.checkValidity()) { handleDocumentSubmit("PJA"); } else { formRef.current?.reportValidity(); } }} className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]">Finish & Submit</button>
+
+                          <div className="space-y-2">
+                            <p className="text-xs font-bold text-slate-700">2. Penghargaan dan Sanksi terkait Aspek HSSE</p>
+                            <div className="overflow-x-auto rounded-xl border border-slate-100">
+                              <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                                <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
+                                  {[
+                                    { key: "scoreP1_4", name: "Pemberlakuan sistem Reward terhadap kinerja HSSE yang baik/ upaya pro aktif" },
+                                  ].map((row) => (
+                                    <tr key={row.key} className="hover:bg-slate-50/50">
+                                      <td className="px-4 py-3.5 font-semibold text-slate-800 leading-relaxed max-w-sm">{row.name}</td>
+                                      {/* YES checkbox */}
+                                      <td className="px-2 py-3.5 w-16 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "YES" ? null : "YES")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "YES"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "YES" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* NO checkbox */}
+                                      <td className="px-2 py-3.5 w-16 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO" ? null : "NO")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* NO NEED checkbox */}
+                                      <td className="px-2 py-3.5 w-20 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO_NEED" ? null : "NO_NEED")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO_NEED"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO_NEED" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* Keterangan input */}
+                                      <td className="px-4 py-2 w-64">
+                                        <input
+                                          type="text"
+                                          placeholder="Keterangan..."
+                                          value={pjaNotes[row.key]}
+                                          onChange={(e) => handlePjaNoteChange(row.key, e.target.value)}
+                                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1 transition-all"
+                                        />
+                                      </td>
+                                      <td className="px-2 py-3.5 w-12 text-center text-slate-400 hover:text-slate-600 transition-colors">
+                                        <svg className="h-4 w-4 inline cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  
+                                  {/* Total Row Process 1 */}
+                                  <tr className="bg-slate-50 font-bold">
+                                    <td className="px-4 py-3.5 text-right uppercase text-slate-500">Total</td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900">{pjaP1Totals.yes.toFixed(2)}</td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900">{pjaP1Totals.no.toFixed(2)}</td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900">{pjaP1Totals.noNeed.toFixed(2)}</td>
+                                    <td className="px-4 py-3.5"></td>
+                                    <td className="px-2 py-3.5 text-center"></td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         </div>
+
+                        {/* Process 2 Section */}
+                        <div className="space-y-4 pt-4 border-t border-slate-100">
+                          <div className="inline-flex rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-800 border border-slate-200 select-none">
+                            Proses 2 : KEBIJAKAN DAN SASARAN
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <p className="text-xs font-bold text-slate-700">1. HSSE Policy Dan Objective</p>
+                            <div className="overflow-x-auto rounded-xl border border-slate-100">
+                              <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                                <thead className="bg-slate-50 font-bold text-slate-500">
+                                  <tr>
+                                    <th scope="col" className="px-4 py-3">KOMPONEN PENILAIAN HSE PLAN</th>
+                                    <th scope="col" className="px-2 py-3 w-16 text-center">YES</th>
+                                    <th scope="col" className="px-2 py-3 w-16 text-center">NO</th>
+                                    <th scope="col" className="px-2 py-3 w-20 text-center">NO NEED</th>
+                                    <th scope="col" className="px-4 py-3 w-64">Keterangan</th>
+                                    <th scope="col" className="px-4 py-3 w-12 text-center"></th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
+                                  {[
+                                    { key: "scoreP2_1", name: "Apakah Manajemen Pelaksana Kontrak telah menandatangani dan mengkomunikasikan kebijakan HSSE untuk pelaksanaan pekerjaan kontrak kepada para pekerjanya?" },
+                                  ].map((row) => (
+                                    <tr key={row.key} className="hover:bg-slate-50/50">
+                                      <td className="px-4 py-3.5 font-semibold text-slate-800 leading-relaxed max-w-sm">{row.name}</td>
+                                      {/* YES checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "YES" ? null : "YES")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "YES"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "YES" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* NO checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO" ? null : "NO")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* NO NEED checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO_NEED" ? null : "NO_NEED")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO_NEED"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO_NEED" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* Keterangan input */}
+                                      <td className="px-4 py-2">
+                                        <input
+                                          type="text"
+                                          placeholder="Keterangan..."
+                                          value={pjaNotes[row.key]}
+                                          onChange={(e) => handlePjaNoteChange(row.key, e.target.value)}
+                                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1 transition-all"
+                                        />
+                                      </td>
+                                      <td className="px-2 py-3.5 text-center text-slate-400 hover:text-slate-600 transition-colors">
+                                        <svg className="h-4 w-4 inline cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-xs font-bold text-slate-700">2. HSSE Performance Indicator / KPI (Key Performance Indicator)</p>
+                            <div className="overflow-x-auto rounded-xl border border-slate-100">
+                              <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                                <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
+                                  {[
+                                    { key: "scoreP2_2", name: "Apakah Pelaksana Kontrak telah menyusun HSSE performance indicator (KPI HSSE Pelaksana Kontrak) terhadap pekerjaan tersebut?" },
+                                  ].map((row) => (
+                                    <tr key={row.key} className="hover:bg-slate-50/50">
+                                      <td className="px-4 py-3.5 font-semibold text-slate-800 leading-relaxed max-w-sm">{row.name}</td>
+                                      {/* YES checkbox */}
+                                      <td className="px-2 py-3.5 w-16 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "YES" ? null : "YES")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "YES"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "YES" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* NO checkbox */}
+                                      <td className="px-2 py-3.5 w-16 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO" ? null : "NO")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* NO NEED checkbox */}
+                                      <td className="px-2 py-3.5 w-20 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO_NEED" ? null : "NO_NEED")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO_NEED"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO_NEED" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      {/* Keterangan input */}
+                                      <td className="px-4 py-2 w-64">
+                                        <input
+                                          type="text"
+                                          placeholder="Keterangan..."
+                                          value={pjaNotes[row.key]}
+                                          onChange={(e) => handlePjaNoteChange(row.key, e.target.value)}
+                                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1 transition-all"
+                                        />
+                                      </td>
+                                      <td className="px-2 py-3.5 w-12 text-center text-slate-400 hover:text-slate-600 transition-colors">
+                                        <svg className="h-4 w-4 inline cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Page Indicator and Navigation */}
+                        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row border-t border-slate-100 pt-5">
+                          <button
+                            type="button"
+                            onClick={() => setPjaStep(1)}
+                            className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 shadow-sm active:scale-[0.98]"
+                          >
+                            &lt; Prev
+                          </button>
+                          
+                          <div className="text-xs text-slate-400 font-semibold select-none">
+                            &lt; 1/8 &gt;
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setPjaStep(3)}
+                            className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]"
+                          >
+                            Next &gt;
+                          </button>
+                        </div>
+
+                        {/* Total Semua Proses section full width */}
+                        <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden flex text-xs">
+                          <div className="bg-slate-100 text-slate-700 font-bold px-6 py-3.5 w-2/3 border-r border-slate-200 text-right uppercase select-none">
+                            Total Semua Proses
+                          </div>
+                          <div className="bg-white text-slate-900 font-bold px-6 py-3.5 w-1/3 text-center text-sm">
+                            {pjaTotalSemuaProses.toFixed(2)}
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 3: PJA Step 3 (Form Proses 7) */}
+                  {pjaStep === 3 && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* PJA Header Card inside Step 3 */}
+                      <div className="grid grid-cols-1 gap-5 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm md:grid-cols-4">
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Vendor Name:</label>
+                          <input type="text" readOnly value={projectName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Name:</label>
+                          <input type="text" readOnly value={projectName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Evaluation Date:</label>
+                          <input type="date" value={evaluationDate} onChange={(e) => setEvaluationDate(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition-all focus:border-blue-500" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Evaluator:</label>
+                          <input type="text" readOnly value={evaluatorName} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 outline-none cursor-not-allowed" />
+                        </div>
+                        <div className="md:col-span-4 text-right text-[10px] text-slate-400 font-medium pt-1">
+                          Last update: 5 Maret 2026
+                        </div>
+                      </div>
+
+                      {/* Process Tables box */}
+                      <div className="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm space-y-6">
+                        
+                        {/* Process 7 Section */}
+                        <div className="space-y-4">
+                          <div className="inline-flex rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-800 border border-slate-200 select-none uppercase">
+                            PROSES 7. JAMINAN : PEMANTAUAN, PENGUKURAN DAN AUDIT
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <p className="text-xs font-bold text-slate-700">1. AUDIT HSSE</p>
+                            <div className="overflow-x-auto rounded-xl border border-slate-100">
+                              <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                                <thead className="bg-slate-50 font-bold text-slate-500">
+                                  <tr>
+                                    <th scope="col" className="px-4 py-3">KOMPONEN PENILAIAN HSE PLAN</th>
+                                    <th scope="col" className="px-2 py-3 w-16 text-center">YES</th>
+                                    <th scope="col" className="px-2 py-3 w-16 text-center">NO</th>
+                                    <th scope="col" className="px-2 py-3 w-20 text-center">NO NEED</th>
+                                    <th scope="col" className="px-4 py-3 w-64">Keterangan</th>
+                                    <th scope="col" className="px-4 py-3 w-12 text-center"></th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
+                                  {[
+                                    { key: "scoreP7_1", name: "Apakah Pelaksana Kontrak telah menyusun dan mengesahkan program tinjauan/ review terhadap implementasi HSSE Plan selama pelaksanaan pekerjaan kontrak?" },
+                                    { key: "scoreP7_2", name: "Apakah periode pelaksanaan tinjauan/ review terhadap implementasi HSSE Plan telah ditetapkan?" },
+                                  ].map((row) => (
+                                    <tr key={row.key} className="hover:bg-slate-50/50">
+                                      <td className="px-4 py-3.5 font-semibold text-slate-800 leading-relaxed max-w-sm">{row.name}</td>
+                                      
+                                      {/* YES checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "YES" ? null : "YES")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "YES"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "YES" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      
+                                      {/* NO checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO" ? null : "NO")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      
+                                      {/* NO NEED checkbox */}
+                                      <td className="px-2 py-3.5 text-center">
+                                        <div className="flex justify-center">
+                                          <div
+                                            onClick={() => handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO_NEED" ? null : "NO_NEED")}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
+                                              pjaAnswers[row.key] === "NO_NEED"
+                                                ? "border-blue-600 bg-blue-50 text-blue-600 font-bold"
+                                                : "border-slate-300 hover:border-slate-400"
+                                            }`}
+                                          >
+                                            {pjaAnswers[row.key] === "NO_NEED" && (
+                                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      
+                                      {/* Keterangan input */}
+                                      <td className="px-4 py-2 w-64">
+                                        <input
+                                          type="text"
+                                          placeholder="Keterangan..."
+                                          value={pjaNotes[row.key]}
+                                          onChange={(e) => handlePjaNoteChange(row.key, e.target.value)}
+                                          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1 transition-all"
+                                        />
+                                      </td>
+                                      
+                                      <td className="px-2 py-3.5 w-12 text-center text-slate-400 hover:text-slate-600 transition-colors">
+                                        <svg className="h-4 w-4 inline cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  
+                                  {/* Total Row */}
+                                  <tr className="bg-slate-50 font-bold">
+                                    <td className="px-4 py-3.5 text-right uppercase text-slate-500">Total</td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900">{pjaP7Totals.yes.toFixed(2)}</td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900">{pjaP7Totals.no.toFixed(2)}</td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900"></td>
+                                    <td className="px-4 py-3.5"></td>
+                                    <td className="px-2 py-3.5 text-center"></td>
+                                  </tr>
+                                  
+                                  {/* % Achievement Row */}
+                                  <tr className="bg-slate-50 font-bold">
+                                    <td className="px-4 py-3.5 text-right uppercase text-slate-500">% PENCAPAIAN TOTAL NILAI PROSES</td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900">
+                                      {String(pjaP7Totals.yesPct).padStart(3, "0")}%
+                                    </td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900">
+                                      {String(pjaP7Totals.noPct).padStart(3, "0")}%
+                                    </td>
+                                    <td className="px-2 py-3.5 text-center text-slate-900"></td>
+                                    <td className="px-4 py-3.5"></td>
+                                    <td className="px-2 py-3.5 text-center"></td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Due Date & Keterangan section table-styled */}
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 mt-4">
+                          <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                            <tbody className="divide-y divide-slate-200 bg-white font-medium text-slate-700">
+                              <tr>
+                                <td className="px-4 py-3.5 font-semibold text-slate-800 bg-slate-50 w-48 uppercase tracking-wider">Due Date</td>
+                                <td className="px-4 py-2">
+                                  <input
+                                    type="text"
+                                    placeholder="DD/MM/YYYY"
+                                    value={pjaDueDate}
+                                    onChange={(e) => setPjaDueDate(e.target.value)}
+                                    className="w-full bg-transparent outline-none text-xs py-1"
+                                  />
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-3.5 font-semibold text-slate-800 bg-slate-50 w-48 uppercase tracking-wider align-top pt-3">Keterangan</td>
+                                <td className="px-4 py-2">
+                                  <textarea
+                                    rows={4}
+                                    value={pjaKeteranganP7}
+                                    onChange={(e) => setPjaKeteranganP7(e.target.value)}
+                                    className="w-full bg-transparent outline-none text-xs py-1 resize-none font-medium text-slate-700"
+                                    placeholder="1.&#10;2."
+                                  />
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Page Indicator and Navigation */}
+                        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row border-t border-slate-100 pt-5">
+                          <button
+                            type="button"
+                            onClick={() => setPjaStep(2)}
+                            className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 shadow-sm active:scale-[0.98]"
+                          >
+                            &lt; Prev
+                          </button>
+                          
+                          <div className="text-xs text-slate-400 font-semibold select-none">
+                            &lt; 8/8 &gt;
+                          </div>
+
+                          <div></div>
+                        </div>
+
+                        {/* Total Semua Proses section full width */}
+                        <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden flex text-xs">
+                          <div className="bg-slate-100 text-slate-700 font-bold px-6 py-3.5 w-2/3 border-r border-slate-200 text-right uppercase select-none">
+                            Total Semua Proses
+                          </div>
+                          <div className="bg-white text-slate-900 font-bold px-6 py-3.5 w-1/3 text-center text-sm">
+                            {pjaTotalSemuaProses.toFixed(2)}
+                          </div>
+                        </div>
+
+                        {/* Large Full Width Submit Button */}
+                        <div className="pt-4">
+                          <button
+                            type="button"
+                            onClick={() => handleDocumentSubmit("PJA")}
+                            className="w-full py-4 bg-white border border-slate-200 text-slate-800 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors active:scale-[0.99] tracking-wider uppercase text-center"
+                          >
+                            Submit
+                          </button>
+                        </div>
+
                       </div>
                     </div>
                   )}
@@ -1707,74 +2525,499 @@ export default function DashboardPage() {
               {/* DOCUMENT PATH C: WIP WORKFLOW (1 STEP) */}
               {/* ============================================== */}
               {activeDocumentType === "WIP" && (
-                <div className="rounded-2xl border border-slate-200/60 bg-white p-8 shadow-sm">
-                  <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                    <form ref={formRef} onSubmit={(e) => { e.preventDefault(); handleDocumentSubmit("WIP"); }} className="space-y-5" noValidate>
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3">Create Work In Progress (WIP)</h3>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Judul Pekerjaan</label>
-                        <input type="text" readOnly value={projectName} className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 outline-none cursor-not-allowed" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="aktivitas" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Deskripsi Aktivitas Harian Lapangan</label>
-                        <textarea id="aktivitas" required rows={4} placeholder="Jelaskan aktivitas pengerjaan fisik harian..." value={deskripsiAktivitas} onChange={(e) => setDeskripsiAktivitas(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                        <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Deskripsi aktivitas diperlukan.</div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="patrol" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Catatan Temuan Patrol Safety</label>
-                        <input type="text" id="patrol" required placeholder="Masukkan temuan safety lapangan jika ada..." value={patrolSafety} onChange={(e) => setPatrolSafety(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                        <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Catatan patrol safety diperlukan.</div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="hours" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Total Jam Kerja Aman (Safe Man-Hours)</label>
-                        <input type="number" id="hours" required min="0" placeholder="Masukkan akumulasi jam kerja aman..." value={safeManHours} onChange={(e) => setSafeManHours(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" />
-                        <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Jumlah jam kerja aman diperlukan.</div>
-                      </div>
-                    </form>
-
-                    <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-6">
-                      <div className="space-y-4">
-                        <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Document Preview (WIP)</span>
-                        <div className="relative border border-slate-300 rounded-lg bg-white p-6 shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between text-slate-800 text-[8px] leading-relaxed select-none">
-                          <div className="flex items-center justify-between border-b border-blue-900 pb-2">
-                            <div className="text-left font-bold text-blue-950 text-[10px]">PERTAMINA</div>
-                            <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-WIP-03</div>
-                          </div>
-                          <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
-                            <p className="text-[9px]">LAPORAN PENGAWASAN LAPANGAN</p>
-                            <p className="text-[8px] text-blue-950">WORK IN PROGRESS (WIP) AUDIT REPORT</p>
-                          </div>
-                          <div className="flex-1 space-y-2 py-2 text-slate-600">
-                            <p className="text-[7px]">Aktivitas harian: {deskripsiAktivitas || "[Belum diisi]"}</p>
-                            <p className="text-[7px]">Temuan Safety Patrol: {patrolSafety || "[Belum diisi]"}</p>
-                            <p className="text-[7px]">Safe Man-Hours: {safeManHours || "0"}</p>
-                          </div>
-                          <div className="flex justify-end pt-2">
-                            <div className="text-right w-24">
-                              <p className="font-bold text-slate-800">Evaluator</p>
-                              <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300">Signature</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-700 font-bold text-xs shrink-0">PDF</span>
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-900 truncate">Work In Progress Audit Form.pdf</p>
-                              <p className="text-[10px] text-slate-400">3.1 MB</p>
-                            </div>
-                          </div>
-                          <button type="button" onClick={() => alert("Simulating PDF full view...")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50">View File</button>
+                <div className="space-y-6">
+                  {/* Lavender Info Card Block */}
+                  <div className="rounded-2xl bg-[#E8EBF9]/65 p-6 border border-indigo-100/50 shadow-sm">
+                    <div className="flex flex-col lg:flex-row gap-6">
+                      {/* Left Block: Work In Progress */}
+                      <div className="flex-1 flex flex-col justify-between space-y-2">
+                        <label className="block text-xs font-bold text-indigo-950/60 uppercase tracking-wider">Work In Progress</label>
+                        <div className="flex-1 rounded-xl bg-white border border-indigo-50/50 p-4 text-sm font-semibold text-slate-800 shadow-sm leading-relaxed flex items-center min-h-[5.5rem]">
+                          {projectName}
                         </div>
                       </div>
-                      <div className="flex items-center justify-end gap-3 mt-6 border-t border-slate-200 pt-4">
-                        <button type="button" onClick={() => { setCurrentView("overview"); setSelectedCategory("All"); }} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50">Cancel</button>
-                        <button type="button" onClick={() => handleDocumentSubmit("WIP")} className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]">Finish & Submit</button>
+                      
+                      {/* Right Block: Status & Last edit */}
+                      <div className="w-full lg:w-64 space-y-4">
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-indigo-950/60 uppercase tracking-wider">Status</label>
+                          <input
+                            type="text"
+                            value={wipStatus}
+                            onChange={(e) => setWipStatus(e.target.value)}
+                            className="block w-full rounded-xl border border-indigo-100 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-indigo-300"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-indigo-950/60 uppercase tracking-wider">Last edit</label>
+                          <input
+                            type="text"
+                            value={wipLastEdit}
+                            onChange={(e) => setWipLastEdit(e.target.value)}
+                            className="block w-full rounded-xl border border-indigo-100 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-indigo-300"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  {wipStep === 1 ? (
+                    /* STEP 1: General Info Form */
+                    <div className="rounded-2xl border border-slate-200/60 bg-white p-8 shadow-sm">
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const form = e.currentTarget;
+                          if (form.checkValidity()) {
+                            setWipStep(2);
+                          } else {
+                            form.reportValidity();
+                          }
+                        }}
+                        className="space-y-6"
+                        noValidate
+                      >
+                        <div>
+                          <h3 className="text-xl font-bold text-slate-900 pb-1">WIP Form</h3>
+                        </div>
+
+                        {/* Field 1: WIP assessment stages */}
+                        <div className="space-y-2">
+                          <label htmlFor="wip-stage" className="block text-sm font-bold text-slate-800">WIP assessment stages</label>
+                          <div className="relative">
+                            <select
+                              id="wip-stage"
+                              required
+                              value={wipAssessmentStage}
+                              onChange={(e) => setWipAssessmentStage(e.target.value)}
+                              className="block w-full appearance-none rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none transition-all focus:bg-slate-200/60 focus:ring-2 focus:ring-blue-500/20"
+                            >
+                              <option value="">..</option>
+                              <option value="Stage 1 - Awal Pekerjaan">Stage 1 - Awal Pekerjaan</option>
+                              <option value="Stage 2 - Pertengahan Pekerjaan">Stage 2 - Pertengahan Pekerjaan</option>
+                              <option value="Stage 3 - Akhir Pekerjaan">Stage 3 - Akhir Pekerjaan</option>
+                            </select>
+                            <span className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-600">
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </span>
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Tahap penilaian WIP diperlukan.</div>
+                          </div>
+                        </div>
+
+                        {/* Field 2: Nama Perusahaan */}
+                        <div className="space-y-2">
+                          <label htmlFor="wip-company" className="block text-sm font-bold text-slate-800">Nama Perusahaan</label>
+                          <input
+                            type="text"
+                            id="wip-company"
+                            required
+                            placeholder="Masukkan nama perusahaan..."
+                            value={wipNamaPerusahaan}
+                            onChange={(e) => setWipNamaPerusahaan(e.target.value)}
+                            className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 placeholder-slate-400 outline-none transition-all focus:bg-slate-200/60 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                          <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Nama perusahaan diperlukan.</div>
+                        </div>
+
+                        {/* Field 3: Jenis Pekerjaan */}
+                        <div className="space-y-2">
+                          <label htmlFor="wip-job" className="block text-sm font-bold text-slate-800">Jenis Pekerjaan</label>
+                          <input
+                            type="text"
+                            id="wip-job"
+                            required
+                            placeholder="Masukkan jenis pekerjaan..."
+                            value={wipJenisPekerjaan}
+                            onChange={(e) => setWipJenisPekerjaan(e.target.value)}
+                            className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 placeholder-slate-400 outline-none transition-all focus:bg-slate-200/60 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                          <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Jenis pekerjaan diperlukan.</div>
+                        </div>
+
+                        {/* Field 4: Lokasi Pekerjaan */}
+                        <div className="space-y-2">
+                          <label htmlFor="wip-location" className="block text-sm font-bold text-slate-800">Lokasi Pekerjaan</label>
+                          <input
+                            type="text"
+                            id="wip-location"
+                            required
+                            placeholder="Masukkan lokasi pekerjaan..."
+                            value={wipLokasiPekerjaan}
+                            onChange={(e) => setWipLokasiPekerjaan(e.target.value)}
+                            className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 placeholder-slate-400 outline-none transition-all focus:bg-slate-200/60 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                          <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Lokasi pekerjaan diperlukan.</div>
+                        </div>
+
+                        {/* Field 5: Tanggal Penilaian */}
+                        <div className="space-y-2">
+                          <label htmlFor="wip-date" className="block text-sm font-bold text-slate-800">Tanggal Penilaian</label>
+                          <input
+                            type="date"
+                            id="wip-date"
+                            required
+                            value={wipTanggalPenilaian}
+                            onChange={(e) => setWipTanggalPenilaian(e.target.value)}
+                            className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 placeholder-slate-400 outline-none transition-all focus:bg-slate-200/60 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                          <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Tanggal penilaian diperlukan.</div>
+                        </div>
+
+                        {/* Field 6: Evaluator */}
+                        <div className="space-y-2">
+                          <label htmlFor="wip-evaluator" className="block text-sm font-bold text-slate-800">Evaluator</label>
+                          <div className="relative">
+                            <select
+                              id="wip-evaluator"
+                              required
+                              value={wipEvaluator}
+                              onChange={(e) => setWipEvaluator(e.target.value)}
+                              className="block w-full appearance-none rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none transition-all focus:bg-slate-200/60 focus:ring-2 focus:ring-blue-500/20"
+                            >
+                              <option value="">..</option>
+                              <option value="PUTRI FATIMA SUNNIA">PUTRI FATIMA SUNNIA</option>
+                              <option value="AHMAD SUJATNO">AHMAD SUJATNO</option>
+                              <option value="BUDI SANTOSO">BUDI SANTOSO</option>
+                            </select>
+                            <span className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-600">
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </span>
+                            <div className="error-msg text-[10px] font-semibold text-red-600 mt-1">Evaluator diperlukan.</div>
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex justify-end pt-4">
+                          <button
+                            type="submit"
+                            className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98]"
+                          >
+                            Continue
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : wipStep === 2 ? (
+                    /* STEP 2: Achievement Indicators Tables */
+                    <div className="rounded-2xl border border-indigo-100 bg-[#E8EBF9]/65 p-8 shadow-sm space-y-6">
+                      {/* Title Badge */}
+                      <div className="flex justify-start">
+                        <span className="inline-flex rounded-full bg-white px-5 py-2 text-xs font-extrabold text-indigo-950 uppercase tracking-wide shadow-sm select-none">
+                          PENCAPAIAN LAGGING INDICATOR
+                        </span>
+                      </div>
+
+                      {/* LAGGING INDICATOR TABLE */}
+                      <div className="overflow-x-auto rounded-lg border border-slate-300 shadow-sm bg-white">
+                        <table className="min-w-full border-collapse text-left text-xs">
+                          <thead className="bg-white text-slate-800 font-bold border-b border-slate-300">
+                            <tr>
+                              <th className="px-4 py-3 border-r border-slate-300 uppercase font-extrabold w-[50%]">LAGGING INDICATOR</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Target</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Aktual</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[20%]">Sanksi Kerja</th>
+                              <th className="px-2 py-3 w-[6%]"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-slate-300">
+                            {[
+                              { key: "row1", text: "Fatality atau Oil Spill \u2265 15 Bbls atau Property Damage \u2265 USD 1.000.000" },
+                              { key: "row2", text: "Luka/ cedera/ sakit menyebabkan Hari kerja hilang (Day away from work) atau 5 \u2264 oil spill < 15 Bbls atau USD 100.000 \u2264 Property Damage < USD 1.000.000." },
+                              { key: "row3", text: "Luka/ cedera/ sakit menyebabkan penanganan dan perawatan korban melebihi P3K (Medical Treatment Cases/ restricted work days/ transfer to another job) atau 1 \u2264 oil spill < 5 Bbls atau USD 10.000 \u2264 Property Damage < USD 100.000." }
+                            ].map((row) => (
+                              <tr key={row.key} className="border-b border-slate-300 hover:bg-slate-50/50">
+                                <td className="px-4 py-3 border-r border-slate-300 font-bold text-slate-800 leading-relaxed max-w-md">{row.text}</td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Target..."
+                                    value={wipLagging[row.key].target}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLagging(prev => ({ ...prev, [row.key]: { ...prev[row.key], target: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Aktual..."
+                                    value={wipLagging[row.key].actual}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLagging(prev => ({ ...prev, [row.key]: { ...prev[row.key], actual: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Sanksi..."
+                                    value={wipLagging[row.key].sanksi}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLagging(prev => ({ ...prev, [row.key]: { ...prev[row.key], sanksi: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="px-2 py-3 w-[6%]"></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* LEADING INDICATOR TABLE */}
+                      <div className="overflow-x-auto rounded-lg border border-slate-300 shadow-sm bg-white">
+                        <table className="min-w-full border-collapse text-left text-xs">
+                          <thead className="bg-white text-slate-800 font-bold border-b border-slate-300">
+                            <tr>
+                              <th className="px-4 py-3 border-r border-slate-300 uppercase font-extrabold w-[50%]">LEADING INDICATOR</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Target</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Aktual</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[20%]">Sanksi Kerja</th>
+                              <th className="px-2 py-3 w-[6%]"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-slate-300">
+                            {[
+                              { key: "row1", text: "Pelaksanaan HSSE Management Walk Through (MWT)/ Manajemen Visit" },
+                              { key: "row2", text: "Pemberian reward dan sanksi HSSE" },
+                              { key: "row3", text: "Penyampaian laporan kinerja HSSE Pelaksana Kontrak kepada pertamina" },
+                              { key: "row4", text: "Pelaksanaan HSSE Meeting" },
+                              { key: "row5", text: "Mengikutsertakan pekerja dalam BPJS Ketenagakerjaan" },
+                              { key: "row6", text: "Pelaksanaan HSSE Talk/ Tool Box Meeting" },
+                              { key: "row7", text: "Pelaksanaan HSSE Induction" }
+                            ].map((row) => (
+                              <tr key={row.key} className="border-b border-slate-300 hover:bg-slate-50/50">
+                                <td className="px-4 py-3 border-r border-slate-300 font-bold text-slate-800 leading-relaxed max-w-md">{row.text}</td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Target..."
+                                    value={wipLeading[row.key].target}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLeading(prev => ({ ...prev, [row.key]: { ...prev[row.key], target: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Aktual..."
+                                    value={wipLeading[row.key].actual}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLeading(prev => ({ ...prev, [row.key]: { ...prev[row.key], actual: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Sanksi..."
+                                    value={wipLeading[row.key].sanksi}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLeading(prev => ({ ...prev, [row.key]: { ...prev[row.key], sanksi: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="px-2 py-3 w-[6%]"></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex justify-between items-center pt-4">
+                        <button
+                          type="button"
+                          onClick={() => setWipStep(1)}
+                          className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 active:scale-[0.98]"
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWipStep(3)}
+                          className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98]"
+                        >
+                          Continue
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* STEP 3: PJA & Leading Indicators Tables (Last Step) */
+                    <div className="rounded-2xl border border-indigo-100 bg-[#E8EBF9]/65 p-8 shadow-sm space-y-6">
+                      {/* Title Badge */}
+                      <div className="flex justify-start">
+                        <span className="inline-flex rounded-full bg-white px-5 py-2 text-xs font-extrabold text-indigo-950 uppercase tracking-wide shadow-sm select-none">
+                          II. PENILAIAN SEBELUM PEKERJAAN BERLANGSUNG (PJA)
+                        </span>
+                      </div>
+
+                      {/* PJA ASSESSMENT TABLE */}
+                      <div className="overflow-x-auto rounded-lg border border-slate-300 shadow-sm bg-white">
+                        <table className="min-w-full border-collapse text-left text-xs">
+                          <thead className="bg-white text-slate-800 font-bold border-b border-slate-300">
+                            <tr>
+                              <th className="px-4 py-3 border-r border-slate-300 uppercase font-extrabold w-[50%]">PENCAPAIAN PENILAIAN PRE JOB ASESSMENT</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Target</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Aktual</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[20%]">Sanksi Kerja</th>
+                              <th className="px-2 py-3 w-[6%]"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-slate-300">
+                            {[
+                              { key: "row1", text: "Fatality atau Oil Spill \u2265 15 Bbls atau Property Damage \u2265 USD 1.000.000" },
+                              { key: "row2", text: "Luka/ cedera/ sakit menyebabkan Hari kerja hilang (Day away from work) atau 5 \u2264 oil spill < 15 Bbls atau USD 100.000 \u2264 Property Damage < USD 1.000.000." },
+                              { key: "row3", text: "Luka/ cedera/ sakit menyebabkan penanganan dan perawatan korban melebihi P3K (Medical Treatment Cases/ restricted work days/ transfer to another job) atau 1 \u2264 oil spill < 5 Bbls atau USD 10.000 \u2264 Property Damage < USD 100.000." }
+                            ].map((row) => (
+                              <tr key={row.key} className="border-b border-slate-300 hover:bg-slate-50/50">
+                                <td className="px-4 py-3 border-r border-slate-300 font-bold text-slate-800 leading-relaxed max-w-md">{row.text}</td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Target..."
+                                    value={wipPjaIndicators[row.key].target}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipPjaIndicators(prev => ({ ...prev, [row.key]: { ...prev[row.key], target: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Aktual..."
+                                    value={wipPjaIndicators[row.key].actual}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipPjaIndicators(prev => ({ ...prev, [row.key]: { ...prev[row.key], actual: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Sanksi..."
+                                    value={wipPjaIndicators[row.key].sanksi}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipPjaIndicators(prev => ({ ...prev, [row.key]: { ...prev[row.key], sanksi: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="px-2 py-3 w-[6%]"></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* LEADING INDICATOR TABLE */}
+                      <div className="overflow-x-auto rounded-lg border border-slate-300 shadow-sm bg-white">
+                        <table className="min-w-full border-collapse text-left text-xs">
+                          <thead className="bg-white text-slate-800 font-bold border-b border-slate-300">
+                            <tr>
+                              <th className="px-4 py-3 border-r border-slate-300 uppercase font-extrabold w-[50%]">LEADING INDICATOR</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Target</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Aktual</th>
+                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[20%]">Sanksi Kerja</th>
+                              <th className="px-2 py-3 w-[6%]"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-slate-300">
+                            {[
+                              { key: "row1", text: "Pelaksanaan HSSE Management Walk Through (MWT)/ Manajemen Visit" },
+                              { key: "row2", text: "Pemberian reward dan sanksi HSSE" },
+                              { key: "row3", text: "Penyampaian laporan kinerja HSSE Pelaksana Kontrak kepada pertamina" },
+                              { key: "row4", text: "Pelaksanaan HSSE Meeting" },
+                              { key: "row5", text: "Mengikutsertakan pekerja dalam BPJS Ketenagakerjaan" },
+                              { key: "row6", text: "Pelaksanaan HSSE Talk/ Tool Box Meeting" },
+                              { key: "row7", text: "Pelaksanaan HSSE Induction" }
+                            ].map((row) => (
+                              <tr key={row.key} className="border-b border-slate-300 hover:bg-slate-50/50">
+                                <td className="px-4 py-3 border-r border-slate-300 font-bold text-slate-800 leading-relaxed max-w-md">{row.text}</td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Target..."
+                                    value={wipLeadingStep3[row.key].target}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLeadingStep3(prev => ({ ...prev, [row.key]: { ...prev[row.key], target: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Aktual..."
+                                    value={wipLeadingStep3[row.key].actual}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLeadingStep3(prev => ({ ...prev, [row.key]: { ...prev[row.key], actual: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-slate-300">
+                                  <input
+                                    type="text"
+                                    placeholder="Sanksi..."
+                                    value={wipLeadingStep3[row.key].sanksi}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setWipLeadingStep3(prev => ({ ...prev, [row.key]: { ...prev[row.key], sanksi: val } }));
+                                    }}
+                                    className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none"
+                                  />
+                                </td>
+                                <td className="px-2 py-3 w-[6%]"></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex justify-between items-center pt-4">
+                        <button
+                          type="button"
+                          onClick={() => setWipStep(2)}
+                          className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 active:scale-[0.98]"
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDocumentSubmit("WIP")}
+                          className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98]"
+                        >
+                          Continue
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
