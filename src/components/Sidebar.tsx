@@ -80,13 +80,14 @@ export default function Sidebar({ currentPath, selectedCategory = "All", documen
             { id: "HSE Plan", name: "HSE Plan", link: "/hse-plan" },
             { id: "PJA", name: "P.J.A", link: "/pje" },
             { id: "WIP", name: "W.I.P", link: "/wip" },
-            { id: "FE", name: "F.E", link: "/dashboard?category=FE" },
+            { id: "FE", name: "F.E", link: "/fe" },
           ].map((cat) => {
             const isHsePlanRoute = cat.id === "HSE Plan" && (currentPath === "/hse-plan" || currentPath === "/hse-plan/create");
             const isPjaRoute = cat.id === "PJA" && (currentPath === "/pje" || currentPath === "/pje/create");
             const isWipRoute = cat.id === "WIP" && (currentPath === "/wip" || currentPath === "/wip/create");
+            const isFeRoute = cat.id === "FE" && (currentPath === "/fe" || currentPath === "/fe/create");
             const isDashboardCategory = currentPath === "/dashboard" && selectedCategory === cat.id;
-            const isActive = isHsePlanRoute || isPjaRoute || isWipRoute || isDashboardCategory;
+            const isActive = isHsePlanRoute || isPjaRoute || isWipRoute || isFeRoute || isDashboardCategory;
 
             return (
               <Link

@@ -34,14 +34,13 @@ function DashboardContent() {
         router.push("/pje");
       } else if (categoryParam === "WIP") {
         router.push("/wip");
+      } else if (categoryParam === "FE") {
+        router.push("/fe");
       } else {
         setSelectedCategory(categoryParam);
-        setCurrentView("create-document");
-        setActiveDocumentType(categoryParam as any);
       }
     } else {
       setSelectedCategory("All");
-      setCurrentView("overview");
     }
   }, [categoryParam, router]);
 
@@ -49,29 +48,7 @@ function DashboardContent() {
     setSearchQuery(searchParam);
   }, [searchParam]);
 
-  // Core navigation state:
-  // "overview" = main metrics and table
-  // "create-document" = document workspace (subpath activeDocumentType)
-  const [currentView, setCurrentView] = useState<"overview" | "create-document">("overview");
-  const [activeDocumentType, setActiveDocumentType] = useState<"HSE Plan" | "PJA" | "WIP" | "FE">("PJA");
 
-  // Form states - PJA / general info shared reference
-  const [vendorName, setVendorName] = useState("PT Warna SeBahtera");
-  const [projectName, setProjectName] = useState("Pengadaan Time Charter 1 (one) Unit VLGC Laycan 19-20 Februari 2024 (LPGC SC Commander LVII)");
-  const [evaluationDate, setEvaluationDate] = useState("2024-02-22");
-  const [evaluatorName, setEvaluatorName] = useState("PUTRI FATIMA SUNNIA");
-  const [lokasiPekerjaan, setLokasiPekerjaan] = useState("");
-  const [picJabatan, setPicJabatan] = useState("");
-
-  // WIP states have been refactored to /wip/create
-
-  // Form states - FE
-  const [totalTemuan, setTotalTemuan] = useState("");
-  const [statusTemuan, setStatusTemuan] = useState("Closed");
-  const [hseScore, setHseScore] = useState("");
-  const [rekomendasiClose, setRekomendasiClose] = useState("");
-
-  const formRef = useRef<HTMLFormElement>(null);
 
   // Toggle sorting logic
   const handleSort = (field: "nama" | "added") => {
@@ -120,37 +97,7 @@ function DashboardContent() {
     };
   }, [documents]);
 
-  // Handle document creation completion
-  const handleDocumentSubmit = (type: "HSE Plan" | "PJA" | "WIP" | "FE") => {
-    let isValid = true;
-    if (formRef.current) {
-      isValid = formRef.current.checkValidity();
-      if (!isValid) {
-        formRef.current.reportValidity();
-        return;
-      }
-    }
 
-    const dateFormatted = new Date().toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
-    }).replace(/ /g, "-");
-
-    const updated = addDocument({
-      nama: projectName,
-      added: dateFormatted,
-      addedDate: new Date().toISOString(),
-      status: "Done",
-      type: type,
-    });
-
-    alert(`${type} document created successfully!`);
-    
-    setDocuments(updated);
-    setCurrentView("overview");
-    setSelectedCategory("All");
-  };
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
@@ -164,15 +111,11 @@ function DashboardContent() {
         <header className="sticky top-0 z-10 flex h-16 w-full items-center justify-between border-b border-slate-200/60 bg-white/85 px-8 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              {currentView === "overview" ? "Dashboard Overview" : `${activeDocumentType} Configuration`}
+              Dashboard Overview
             </h1>
             <span className="text-slate-300">/</span>
             <span className="text-sm font-medium text-slate-500">
-              {currentView === "overview"
-                ? selectedCategory === "All"
-                  ? "All Documents"
-                  : selectedCategory
-                : "Form Setup"}
+              {selectedCategory === "All" ? "All Documents" : selectedCategory}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -205,37 +148,30 @@ function DashboardContent() {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-400/85 px-2 py-1 select-none">
             <Link href="/hse-plan" className="hover:text-red-500 transition-colors">HSE Plan</Link>
             <span className="text-slate-355 mx-1">-</span>
-            <span className={activeDocumentType === "PJA" && currentView === "create-document" ? "text-blue-500 font-bold" : ""}>Pre Job Assesment</span>
+            <Link href="/pje" className="hover:text-blue-500 transition-colors">Pre Job Assesment</Link>
             <span className="text-slate-355 mx-1">-</span>
-            <span className={activeDocumentType === "WIP" && currentView === "create-document" ? "text-slate-700 font-bold" : ""}>Work In Progress</span>
+            <Link href="/wip" className="hover:text-slate-700 transition-colors">Work In Progress</Link>
             <span className="text-slate-355 mx-1">-</span>
-            <span className={activeDocumentType === "FE" && currentView === "create-document" ? "text-green-500 font-bold" : ""}>Final Evaluation</span>
+            <Link href="/fe" className="hover:text-green-500 transition-colors">Final Evaluation</Link>
           </div>
 
-          {currentView === "overview" ? (
-            /* ======================================================== */
-            /* VIEW A: DASHBOARD OVERVIEW */
-            /* ======================================================== */
-            <>
-              {/* KPI Dashboard Section Grid */}
-              <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  { id: "HSE Plan", name: "HSE Plan", value: `${stats.hsePlan}/80`, pct: 56.2, color: "from-red-500 to-rose-600", light: "bg-red-50 text-red-650 border-red-100", customRoute: "/hse-plan" },
-                  { id: "PJA", name: "PJA", value: `${stats.pja}/80`, pct: 35.0, color: "from-blue-500 to-indigo-600", light: "bg-blue-50 text-blue-600 border-blue-100", customRoute: "/pje" },
-                  { id: "WIP", name: "WIP", value: `${stats.wip}/80`, pct: 23.7, color: "from-amber-500 to-yellow-600", light: "bg-amber-50 text-amber-600 border-amber-100", customRoute: "/wip" },
-                  { id: "FE", name: "FE", value: `${stats.fe}/80`, pct: 10.0, color: "from-green-500 to-emerald-600", light: "bg-green-50 text-green-600 border-green-100" },
-                ].map((kpi) => (
-                  <button
-                    key={kpi.id}
-                    onClick={() => {
-                      if (kpi.customRoute) {
-                        router.push(kpi.customRoute);
-                      } else {
-                        setSelectedCategory(kpi.id);
-                        setActiveDocumentType(kpi.id as any);
-                        setCurrentView("create-document");
-                      }
-                    }}
+          {/* KPI Dashboard Section Grid */}
+          <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { id: "HSE Plan", name: "HSE Plan", value: `${stats.hsePlan}/80`, pct: 56.2, color: "from-red-500 to-rose-600", light: "bg-red-50 text-red-650 border-red-100", customRoute: "/hse-plan" },
+              { id: "PJA", name: "PJA", value: `${stats.pja}/80`, pct: 35.0, color: "from-blue-500 to-indigo-600", light: "bg-blue-50 text-blue-600 border-blue-100", customRoute: "/pje" },
+              { id: "WIP", name: "WIP", value: `${stats.wip}/80`, pct: 23.7, color: "from-amber-500 to-yellow-600", light: "bg-amber-50 text-amber-600 border-amber-100", customRoute: "/wip" },
+              { id: "FE", name: "FE", value: `${stats.fe}/80`, pct: 10.0, color: "from-green-500 to-emerald-600", light: "bg-green-50 text-green-600 border-green-100", customRoute: "/fe" },
+            ].map((kpi) => (
+              <button
+                key={kpi.id}
+                onClick={() => {
+                  if (kpi.customRoute) {
+                    router.push(kpi.customRoute);
+                  } else {
+                    setSelectedCategory(kpi.id);
+                  }
+                }}
                     className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md hover:border-slate-300 text-left cursor-pointer"
                   >
                     <div className="flex w-full items-center justify-between">
@@ -411,12 +347,10 @@ function DashboardContent() {
                           router.push("/pje");
                         } else if (cat === "WIP") {
                           router.push("/wip");
+                        } else if (cat === "FE") {
+                          router.push("/fe");
                         } else {
                           setSelectedCategory(cat);
-                          if (cat !== "All") {
-                            setActiveDocumentType(cat as any);
-                            setCurrentView("create-document");
-                          }
                         }
                       }}
                       className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
@@ -511,97 +445,6 @@ function DashboardContent() {
                   </div>
                 </div>
               </section>
-            </>
-          ) : (
-            /* ======================================================== */
-            /* VIEW B: CREATE DOCUMENT WORKSPACES (INDEPENDENT) */
-            /* ======================================================== */
-            <div className="space-y-6">
-              {/* PJA and WIP Creation Wizards have been refactored to /pje/create and /wip/create */}
-
-              {/* ============================================== */}
-              {/* DOCUMENT PATH D: FE WORKFLOW (1 STEP) */}
-              {/* ============================================== */}
-              {activeDocumentType === "FE" && (
-                <div className="rounded-2xl border border-slate-200/60 bg-white p-8 shadow-sm">
-                  <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                    <form ref={formRef} onSubmit={(e) => { e.preventDefault(); handleDocumentSubmit("FE"); }} className="space-y-5" noValidate>
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-905 border-b border-slate-100 pb-3">Create Final Evaluation (FE)</h3>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Judul Pekerjaan</label>
-                        <input type="text" readOnly value={projectName} className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 outline-none cursor-not-allowed font-semibold" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label htmlFor="temuan" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Total Temuan Audit</label>
-                          <input type="number" id="temuan" required min="0" placeholder="0" value={totalTemuan} onChange={(e) => setTotalTemuan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 font-semibold" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label htmlFor="status-temuan" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Status Temuan Akhir</label>
-                          <select id="status-temuan" value={statusTemuan} onChange={(e) => setStatusTemuan(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 font-semibold">
-                            <option value="Closed">Closed / Diselesaikan</option>
-                            <option value="Open">Open / Terbuka</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="score" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Skor Kinerja Akhir Kontraktor (HSE Score 1-100)</label>
-                        <input type="number" id="score" required min="1" max="100" placeholder="Masukkan nilai evaluasi (e.g. 92)..." value={hseScore} onChange={(e) => setHseScore(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 font-semibold" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="rekomendasi" className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Rekomendasi Penutupan Kontrak</label>
-                        <textarea id="rekomendasi" required rows={3} placeholder="Berikan catatan rekomendasi penutupan audit administrasi..." value={rekomendasiClose} onChange={(e) => setRekomendasiClose(e.target.value)} className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 font-semibold" />
-                      </div>
-                    </form>
-
-                    <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-6">
-                      <div className="space-y-4">
-                        <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Document Preview (FE)</span>
-                        <div className="relative border border-slate-300 rounded-lg bg-white p-6 shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between text-slate-800 text-[8px] leading-relaxed select-none">
-                          <div className="flex items-center justify-between border-b border-blue-900 pb-2">
-                            <div className="text-left font-bold text-blue-955 text-[10px]">PERTAMINA</div>
-                            <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-FE-04</div>
-                          </div>
-                          <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
-                            <p className="text-[9px]">FINAL PERFORMANCE EVALUATION</p>
-                            <p className="text-[8px] text-blue-955 font-semibold">SERTIFIKASI KINERJA KONTRAKTOR HSSE</p>
-                          </div>
-                          <div className="flex-1 space-y-2 py-2 text-slate-650">
-                            <p className="text-[7px] font-semibold">Temuan audit: {totalTemuan || "0"} ({statusTemuan}).</p>
-                            <p className="text-[7px] font-semibold">HSE Score: {hseScore || "0"} / 100.</p>
-                            <p className="text-[7px] font-semibold">Rekomendasi: {rekomendasiClose || "[Belum diisi]"}</p>
-                          </div>
-                          <div className="flex justify-end pt-2">
-                            <div className="text-right w-24">
-                              <p className="font-bold text-slate-800">Evaluator</p>
-                              <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300 font-bold">Signature</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between shadow-sm">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-700 font-bold text-xs shrink-0">PDF</span>
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-900 truncate font-semibold">Final Evaluation Form.pdf</p>
-                              <p className="text-[10px] text-slate-400 font-semibold">1.2 MB</p>
-                            </div>
-                          </div>
-                          <button type="button" onClick={() => alert("Simulating PDF full view...")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-650 hover:bg-slate-50 transition-colors">View File</button>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-end gap-3 mt-6 border-t border-slate-200 pt-4">
-                        <button type="button" onClick={() => { setCurrentView("overview"); setSelectedCategory("All"); }} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-650 transition-colors hover:bg-slate-50">Cancel</button>
-                        <button type="button" onClick={() => handleDocumentSubmit("FE")} className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-8 py-3 text-xs font-extrabold text-white shadow-md hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] transition-all uppercase tracking-wider">Finish & Submit</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
 
         </main>
       </div>
