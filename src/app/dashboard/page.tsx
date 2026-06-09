@@ -32,6 +32,8 @@ function DashboardContent() {
         router.push("/hse-plan");
       } else if (categoryParam === "PJA") {
         router.push("/pje");
+      } else if (categoryParam === "WIP") {
+        router.push("/wip");
       } else {
         setSelectedCategory(categoryParam);
         setCurrentView("create-document");
@@ -61,48 +63,7 @@ function DashboardContent() {
   const [lokasiPekerjaan, setLokasiPekerjaan] = useState("");
   const [picJabatan, setPicJabatan] = useState("");
 
-  // Form states - WIP
-  const [wipStep, setWipStep] = useState<1 | 2 | 3>(1);
-  const [wipAssessmentStage, setWipAssessmentStage] = useState("");
-  const [wipNamaPerusahaan, setWipNamaPerusahaan] = useState("PT Warna SeBahtera");
-  const [wipJenisPekerjaan, setWipJenisPekerjaan] = useState("Jasa Pelayaran & Pengangkutan Gas");
-  const [wipLokasiPekerjaan, setWipLokasiPekerjaan] = useState("");
-  const [wipTanggalPenilaian, setWipTanggalPenilaian] = useState("");
-  const [wipEvaluator, setWipEvaluator] = useState("PUTRI FATIMA SUNNIA");
-  const [wipStatus, setWipStatus] = useState("On Review by PIC");
-  const [wipLastEdit, setWipLastEdit] = useState("22 February 2026");
-
-  // Indicator States - WIP Step 2
-  const [wipLagging, setWipLagging] = useState<Record<string, { target: string; actual: string; sanksi: string }>>({
-    row1: { target: "", actual: "", sanksi: "" },
-    row2: { target: "", actual: "", sanksi: "" },
-    row3: { target: "", actual: "", sanksi: "" },
-  });
-  const [wipLeading, setWipLeading] = useState<Record<string, { target: string; actual: string; sanksi: string }>>({
-    row1: { target: "", actual: "", sanksi: "" },
-    row2: { target: "", actual: "", sanksi: "" },
-    row3: { target: "", actual: "", sanksi: "" },
-    row4: { target: "", actual: "", sanksi: "" },
-    row5: { target: "", actual: "", sanksi: "" },
-    row6: { target: "", actual: "", sanksi: "" },
-    row7: { target: "", actual: "", sanksi: "" },
-  });
-
-  // Indicator States - WIP Step 3
-  const [wipPjaIndicators, setWipPjaIndicators] = useState<Record<string, { target: string; actual: string; sanksi: string }>>({
-    row1: { target: "", actual: "", sanksi: "" },
-    row2: { target: "", actual: "", sanksi: "" },
-    row3: { target: "", actual: "", sanksi: "" },
-  });
-  const [wipLeadingStep3, setWipLeadingStep3] = useState<Record<string, { target: string; actual: string; sanksi: string }>>({
-    row1: { target: "", actual: "", sanksi: "" },
-    row2: { target: "", actual: "", sanksi: "" },
-    row3: { target: "", actual: "", sanksi: "" },
-    row4: { target: "", actual: "", sanksi: "" },
-    row5: { target: "", actual: "", sanksi: "" },
-    row6: { target: "", actual: "", sanksi: "" },
-    row7: { target: "", actual: "", sanksi: "" },
-  });
+  // WIP states have been refactored to /wip/create
 
   // Form states - FE
   const [totalTemuan, setTotalTemuan] = useState("");
@@ -189,41 +150,6 @@ function DashboardContent() {
     setDocuments(updated);
     setCurrentView("overview");
     setSelectedCategory("All");
-    setWipStep(1);
-    setWipAssessmentStage("");
-    setWipNamaPerusahaan("PT Warna SeBahtera");
-    setWipJenisPekerjaan("Jasa Pelayaran & Pengangkutan Gas");
-    setWipLokasiPekerjaan("");
-    setWipTanggalPenilaian("");
-    setWipEvaluator("PUTRI FATIMA SUNNIA");
-    setWipLagging({
-      row1: { target: "", actual: "", sanksi: "" },
-      row2: { target: "", actual: "", sanksi: "" },
-      row3: { target: "", actual: "", sanksi: "" },
-    });
-    setWipLeading({
-      row1: { target: "", actual: "", sanksi: "" },
-      row2: { target: "", actual: "", sanksi: "" },
-      row3: { target: "", actual: "", sanksi: "" },
-      row4: { target: "", actual: "", sanksi: "" },
-      row5: { target: "", actual: "", sanksi: "" },
-      row6: { target: "", actual: "", sanksi: "" },
-      row7: { target: "", actual: "", sanksi: "" },
-    });
-    setWipPjaIndicators({
-      row1: { target: "", actual: "", sanksi: "" },
-      row2: { target: "", actual: "", sanksi: "" },
-      row3: { target: "", actual: "", sanksi: "" },
-    });
-    setWipLeadingStep3({
-      row1: { target: "", actual: "", sanksi: "" },
-      row2: { target: "", actual: "", sanksi: "" },
-      row3: { target: "", actual: "", sanksi: "" },
-      row4: { target: "", actual: "", sanksi: "" },
-      row5: { target: "", actual: "", sanksi: "" },
-      row6: { target: "", actual: "", sanksi: "" },
-      row7: { target: "", actual: "", sanksi: "" },
-    });
   };
 
   return (
@@ -246,8 +172,6 @@ function DashboardContent() {
                 ? selectedCategory === "All"
                   ? "All Documents"
                   : selectedCategory
-                : activeDocumentType === "WIP"
-                ? `Step ${wipStep} of 3`
                 : "Form Setup"}
             </span>
           </div>
@@ -298,7 +222,7 @@ function DashboardContent() {
                 {[
                   { id: "HSE Plan", name: "HSE Plan", value: `${stats.hsePlan}/80`, pct: 56.2, color: "from-red-500 to-rose-600", light: "bg-red-50 text-red-650 border-red-100", customRoute: "/hse-plan" },
                   { id: "PJA", name: "PJA", value: `${stats.pja}/80`, pct: 35.0, color: "from-blue-500 to-indigo-600", light: "bg-blue-50 text-blue-600 border-blue-100", customRoute: "/pje" },
-                  { id: "WIP", name: "WIP", value: `${stats.wip}/80`, pct: 23.7, color: "from-amber-500 to-yellow-600", light: "bg-amber-50 text-amber-600 border-amber-100" },
+                  { id: "WIP", name: "WIP", value: `${stats.wip}/80`, pct: 23.7, color: "from-amber-500 to-yellow-600", light: "bg-amber-50 text-amber-600 border-amber-100", customRoute: "/wip" },
                   { id: "FE", name: "FE", value: `${stats.fe}/80`, pct: 10.0, color: "from-green-500 to-emerald-600", light: "bg-green-50 text-green-600 border-green-100" },
                 ].map((kpi) => (
                   <button
@@ -485,6 +409,8 @@ function DashboardContent() {
                           router.push("/hse-plan");
                         } else if (cat === "PJA") {
                           router.push("/pje");
+                        } else if (cat === "WIP") {
+                          router.push("/wip");
                         } else {
                           setSelectedCategory(cat);
                           if (cat !== "All") {
@@ -591,246 +517,7 @@ function DashboardContent() {
             /* VIEW B: CREATE DOCUMENT WORKSPACES (INDEPENDENT) */
             /* ======================================================== */
             <div className="space-y-6">
-              {/* PJA Creation Wizard has been refactored to /pje/create */}
-
-              {/* ============================================== */}
-              {/* DOCUMENT PATH C: WIP WORKFLOW (3 STEPS) */}
-              {/* ============================================== */}
-              {activeDocumentType === "WIP" && (
-                <div className="space-y-6">
-                  <div className="rounded-2xl bg-[#E8EBF9]/65 p-6 border border-indigo-100/50 shadow-sm">
-                    <div className="flex flex-col lg:flex-row gap-6">
-                      <div className="flex-1 flex flex-col justify-between space-y-2">
-                        <label className="block text-xs font-bold text-indigo-955/60 uppercase tracking-wider">Work In Progress</label>
-                        <div className="flex-1 rounded-xl bg-white border border-indigo-50/50 p-4 text-sm font-semibold text-slate-800 shadow-sm leading-relaxed flex items-center min-h-[5.5rem]">
-                          {projectName}
-                        </div>
-                      </div>
-                      <div className="w-full lg:w-64 space-y-4">
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-indigo-955/60 uppercase tracking-wider">Status</label>
-                          <input type="text" value={wipStatus} onChange={(e) => setWipStatus(e.target.value)} className="block w-full rounded-xl border border-indigo-100 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-indigo-300" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-indigo-955/60 uppercase tracking-wider">Last edit</label>
-                          <input type="text" value={wipLastEdit} onChange={(e) => setWipLastEdit(e.target.value)} className="block w-full rounded-xl border border-indigo-100 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-indigo-300" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {wipStep === 1 ? (
-                    <div className="rounded-2xl border border-slate-200/60 bg-white p-8 shadow-sm">
-                      <form onSubmit={(e) => { e.preventDefault(); setWipStep(2); }} className="space-y-6">
-                        <div>
-                          <h3 className="text-xl font-bold text-slate-905 pb-1">WIP Form</h3>
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="wip-stage" className="block text-sm font-bold text-slate-800">WIP assessment stages</label>
-                          <select id="wip-stage" required value={wipAssessmentStage} onChange={(e) => setWipAssessmentStage(e.target.value)} className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:bg-slate-200/60 transition-all">
-                            <option value="">..</option>
-                            <option value="Stage 1 - Awal Pekerjaan">Stage 1 - Awal Pekerjaan</option>
-                            <option value="Stage 2 - Pertengahan Pekerjaan">Stage 2 - Pertengahan Pekerjaan</option>
-                            <option value="Stage 3 - Akhir Pekerjaan">Stage 3 - Akhir Pekerjaan</option>
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="wip-company" className="block text-sm font-bold text-slate-800">Nama Perusahaan</label>
-                          <input type="text" id="wip-company" required placeholder="PT Warna SeBahtera" value={wipNamaPerusahaan} onChange={(e) => setWipNamaPerusahaan(e.target.value)} className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:bg-slate-200/60 transition-all" />
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="wip-job" className="block text-sm font-bold text-slate-800">Jenis Pekerjaan</label>
-                          <input type="text" id="wip-job" required placeholder="Jasa Pelayaran & Pengangkutan Gas" value={wipJenisPekerjaan} onChange={(e) => setWipJenisPekerjaan(e.target.value)} className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:bg-slate-200/60 transition-all" />
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="wip-location" className="block text-sm font-bold text-slate-800">Lokasi Pekerjaan</label>
-                          <input type="text" id="wip-location" required placeholder="Masukkan lokasi pekerjaan..." value={wipLokasiPekerjaan} onChange={(e) => setWipLokasiPekerjaan(e.target.value)} className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:bg-slate-200/60 transition-all" />
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="wip-date" className="block text-sm font-bold text-slate-800">Tanggal Penilaian</label>
-                          <input type="date" id="wip-date" required value={wipTanggalPenilaian} onChange={(e) => setWipTanggalPenilaian(e.target.value)} className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:bg-slate-200/60 transition-all" />
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="wip-evaluator" className="block text-sm font-bold text-slate-800">Evaluator</label>
-                          <input type="text" id="wip-evaluator" required placeholder="PUTRI FATIMA SUNNIA" value={wipEvaluator} onChange={(e) => setWipEvaluator(e.target.value)} className="block w-full rounded-xl border border-transparent bg-slate-100/90 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:bg-slate-200/60 transition-all" />
-                        </div>
-                        <div className="flex justify-end pt-4 gap-3">
-                          <button type="button" onClick={() => { setCurrentView("overview"); setSelectedCategory("All"); }} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-650 hover:bg-slate-50">Cancel</button>
-                          <button type="submit" className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-6 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]">Continue</button>
-                        </div>
-                      </form>
-                    </div>
-                  ) : wipStep === 2 ? (
-                    <div className="rounded-2xl border border-indigo-100 bg-[#E8EBF9]/65 p-8 shadow-sm space-y-6">
-                      <div className="flex justify-start">
-                        <span className="inline-flex rounded-full bg-white px-5 py-2 text-xs font-extrabold text-indigo-955 uppercase tracking-wide shadow-sm select-none">
-                          PENCAPAIAN LAGGING INDICATOR
-                        </span>
-                      </div>
-                      
-                      <div className="overflow-x-auto rounded-lg border border-slate-350 shadow-sm bg-white">
-                        <table className="min-w-full border-collapse text-left text-xs font-medium">
-                          <thead className="bg-white text-slate-850 font-bold border-b border-slate-300">
-                            <tr>
-                              <th className="px-4 py-3 border-r border-slate-300 uppercase font-extrabold w-[50%]">LAGGING INDICATOR</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Target</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Aktual</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[20%]">Sanksi Kerja</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-slate-300">
-                            {[
-                              { key: "row1", text: "Fatality atau Oil Spill ≥ 15 Bbls atau Property Damage ≥ USD 1.000.000" },
-                              { key: "row2", text: "Luka/ cedera/ sakit menyebabkan Hari kerja hilang (Day away from work) atau 5 ≤ oil spill < 15 Bbls atau USD 100.000 ≤ Property Damage < USD 1.000.000." },
-                              { key: "row3", text: "Luka/ cedera/ sakit menyebabkan penanganan dan perawatan korban melebihi P3K (Medical Treatment Cases/ restricted work days/ transfer to another job) atau 1 ≤ oil spill < 5 Bbls atau USD 10.000 ≤ Property Damage < USD 100.000." }
-                            ].map((row) => (
-                              <tr key={row.key} className="border-b border-slate-300 hover:bg-slate-50/50">
-                                <td className="px-4 py-3 border-r border-slate-300 font-bold text-slate-800 leading-relaxed max-w-md">{row.text}</td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Target..." value={wipLagging[row.key].target} onChange={(e) => setWipLagging(prev => ({ ...prev, [row.key]: { ...prev[row.key], target: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Aktual..." value={wipLagging[row.key].actual} onChange={(e) => setWipLagging(prev => ({ ...prev, [row.key]: { ...prev[row.key], actual: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Sanksi..." value={wipLagging[row.key].sanksi} onChange={(e) => setWipLagging(prev => ({ ...prev, [row.key]: { ...prev[row.key], sanksi: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* LEADING INDICATOR TABLE */}
-                      <div className="overflow-x-auto rounded-lg border border-slate-350 shadow-sm bg-white mt-4">
-                        <table className="min-w-full border-collapse text-left text-xs font-medium">
-                          <thead className="bg-white text-slate-850 font-bold border-b border-slate-300">
-                            <tr>
-                              <th className="px-4 py-3 border-r border-slate-300 uppercase font-extrabold w-[50%]">LEADING INDICATOR</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Target</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Aktual</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[20%]">Sanksi Kerja</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-slate-300">
-                            {[
-                              { key: "row1", text: "Pelaksanaan HSSE Management Walk Through (MWT)/ Manajemen Visit" },
-                              { key: "row2", text: "Pemberian reward dan sanksi HSSE" },
-                              { key: "row3", text: "Penyampaian laporan kinerja HSSE Pelaksana Kontrak kepada pertamina" },
-                              { key: "row4", text: "Pelaksanaan HSSE Meeting" },
-                              { key: "row5", text: "Mengikutsertakan pekerja dalam BPJS Ketenagakerjaan" },
-                              { key: "row6", text: "Pelaksanaan HSSE Talk/ Tool Box Meeting" },
-                              { key: "row7", text: "Pelaksanaan HSSE Induction" }
-                            ].map((row) => (
-                              <tr key={row.key} className="border-b border-slate-300 hover:bg-slate-50/50">
-                                <td className="px-4 py-3 border-r border-slate-300 font-bold text-slate-800 leading-relaxed max-w-md">{row.text}</td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Target..." value={wipLeading[row.key].target} onChange={(e) => setWipLeading(prev => ({ ...prev, [row.key]: { ...prev[row.key], target: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Aktual..." value={wipLeading[row.key].actual} onChange={(e) => setWipLeading(prev => ({ ...prev, [row.key]: { ...prev[row.key], actual: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Sanksi..." value={wipLeading[row.key].sanksi} onChange={(e) => setWipLeading(prev => ({ ...prev, [row.key]: { ...prev[row.key], sanksi: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-4">
-                        <button type="button" onClick={() => setWipStep(1)} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-655 hover:bg-slate-50 active:scale-[0.98]">Back</button>
-                        <button type="button" onClick={() => setWipStep(3)} className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-6 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]">Continue</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-indigo-100 bg-[#E8EBF9]/65 p-8 shadow-sm space-y-6">
-                      <div className="flex justify-start">
-                        <span className="inline-flex rounded-full bg-white px-5 py-2 text-xs font-extrabold text-indigo-950 uppercase tracking-wide shadow-sm select-none">
-                          II. PENILAIAN SEBELUM PEKERJAAN BERLANGSUNG (PJA)
-                        </span>
-                      </div>
-
-                      <div className="overflow-x-auto rounded-lg border border-slate-355 shadow-sm bg-white">
-                        <table className="min-w-full border-collapse text-left text-xs font-medium">
-                          <thead className="bg-white text-slate-850 font-bold border-b border-slate-300">
-                            <tr>
-                              <th className="px-4 py-3 border-r border-slate-300 uppercase font-extrabold w-[50%]">PENCAPAIAN PENILAIAN PRE JOB ASESSMENT</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Target</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Aktual</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[20%]">Sanksi Kerja</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-slate-300">
-                            {[
-                              { key: "row1", text: "Fatality atau Oil Spill ≥ 15 Bbls atau Property Damage ≥ USD 1.000.000" },
-                              { key: "row2", text: "Luka/ cedera/ sakit menyebabkan Hari kerja hilang (Day away from work) atau 5 ≤ oil spill < 15 Bbls atau USD 100.000 ≤ Property Damage < USD 1.000.000." },
-                              { key: "row3", text: "Luka/ cedera/ sakit menyebabkan penanganan dan perawatan korban melebihi P3K (Medical Treatment Cases/ restricted work days/ transfer to another job) atau 1 ≤ oil spill < 5 Bbls atau USD 10.000 ≤ Property Damage < USD 100.000." }
-                            ].map((row) => (
-                              <tr key={row.key} className="border-b border-slate-300 hover:bg-slate-50/50">
-                                <td className="px-4 py-3 border-r border-slate-300 font-bold text-slate-800 leading-relaxed max-w-md">{row.text}</td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Target..." value={wipPjaIndicators[row.key].target} onChange={(e) => setWipPjaIndicators(prev => ({ ...prev, [row.key]: { ...prev[row.key], target: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Aktual..." value={wipPjaIndicators[row.key].actual} onChange={(e) => setWipPjaIndicators(prev => ({ ...prev, [row.key]: { ...prev[row.key], actual: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Sanksi..." value={wipPjaIndicators[row.key].sanksi} onChange={(e) => setWipPjaIndicators(prev => ({ ...prev, [row.key]: { ...prev[row.key], sanksi: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* LEADING INDICATOR TABLE */}
-                      <div className="overflow-x-auto rounded-lg border border-slate-355 shadow-sm bg-white mt-4">
-                        <table className="min-w-full border-collapse text-left text-xs font-medium">
-                          <thead className="bg-white text-slate-850 font-bold border-b border-slate-300">
-                            <tr>
-                              <th className="px-4 py-3 border-r border-slate-300 uppercase font-extrabold w-[50%]">LEADING INDICATOR</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Target</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[12%]">Aktual</th>
-                              <th className="px-2 py-3 border-r border-slate-300 text-center uppercase font-extrabold w-[20%]">Sanksi Kerja</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-slate-300">
-                            {[
-                              { key: "row1", text: "Pelaksanaan HSSE Management Walk Through (MWT)/ Manajemen Visit" },
-                              { key: "row2", text: "Pemberian reward dan sanksi HSSE" },
-                              { key: "row3", text: "Penyampaian laporan kinerja HSSE Pelaksana Kontrak kepada pertamina" },
-                              { key: "row4", text: "Pelaksanaan HSSE Meeting" },
-                              { key: "row5", text: "Mengikutsertakan pekerja dalam BPJS Ketenagakerjaan" },
-                              { key: "row6", text: "Pelaksanaan HSSE Talk/ Tool Box Meeting" },
-                              { key: "row7", text: "Pelaksanaan HSSE Induction" }
-                            ].map((row) => (
-                              <tr key={row.key} className="border-b border-slate-300 hover:bg-slate-50/50">
-                                <td className="px-4 py-3 border-r border-slate-300 font-bold text-slate-800 leading-relaxed max-w-md">{row.text}</td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Target..." value={wipLeadingStep3[row.key].target} onChange={(e) => setWipLeadingStep3(prev => ({ ...prev, [row.key]: { ...prev[row.key], target: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Aktual..." value={wipLeadingStep3[row.key].actual} onChange={(e) => setWipLeadingStep3(prev => ({ ...prev, [row.key]: { ...prev[row.key], actual: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                                <td className="p-1 border-r border-slate-300">
-                                  <input type="text" placeholder="Sanksi..." value={wipLeadingStep3[row.key].sanksi} onChange={(e) => setWipLeadingStep3(prev => ({ ...prev, [row.key]: { ...prev[row.key], sanksi: e.target.value } }))} className="w-full h-full bg-transparent px-2 py-1.5 text-center text-xs font-semibold text-slate-800 outline-none" />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-4">
-                        <button type="button" onClick={() => setWipStep(2)} className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-655 hover:bg-slate-50 active:scale-[0.98]">Back</button>
-                        <button type="button" onClick={() => handleDocumentSubmit("WIP")} className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-8 py-3 text-xs font-extrabold text-white shadow-md hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] transition-all uppercase tracking-wider">Finish & Submit</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* PJA and WIP Creation Wizards have been refactored to /pje/create and /wip/create */}
 
               {/* ============================================== */}
               {/* DOCUMENT PATH D: FE WORKFLOW (1 STEP) */}
