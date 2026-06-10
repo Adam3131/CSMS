@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../../components/Sidebar";
 import { DocumentItem, getDocuments, addDocument } from "../../../utils/documentStore";
+import { supabase } from "../../../utils/supabaseClient";
 
 function PjeCreateContent() {
   const router = useRouter();
@@ -11,6 +12,8 @@ function PjeCreateContent() {
   const formRef = useRef<HTMLFormElement>(null);
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string; visible: boolean } | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
 
   // Wizard state: 1, 2, or 3
@@ -114,26 +117,77 @@ function PjeCreateContent() {
     return yesCount;
   }, [pjaAnswers]);
 
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message, visible: true });
+    if (type === "success") {
+      setTimeout(() => setToast(null), 3500);
+    }
+  };
+
   const handleFinishSubmit = async () => {
-    const dateFormatted = new Date().toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).replace(/ /g, "-");
+    setIsSubmitting(true);
+    setToast(null);
 
-    const calculatedScore = pjaTotalSemuaProses.toFixed(2);
+    try {
+      const dateFormatted = new Date()
+        .toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+        .replace(/ /g, "-");
 
-    await addDocument({
-      nama: projectName,
-      added: dateFormatted,
-      addedDate: new Date().toISOString(),
-      status: "Done",
-      type: "PJA",
-      nilai: calculatedScore
-    });
+      const calculatedScore = pjaTotalSemuaProses.toFixed(2);
 
-    alert("PJA document created successfully!");
-    router.push("/pje");
+      // 1. Insert into documents table, get back the new document's no
+      const updatedDocs = await addDocument({
+        nama: projectName,
+        added: dateFormatted,
+        addedDate: new Date().toISOString(),
+        status: "Done",
+        type: "PJA",
+        nilai: calculatedScore,
+      });
+
+      // updatedDocs is sorted descending, so the first item is the newest
+      const newDocNo = updatedDocs[0]?.no ?? null;
+
+      // 2. Parse due_date from DD/MM/YYYY → YYYY-MM-DD for Supabase date type
+      let parsedDueDate: string | null = null;
+      if (pjaDueDate) {
+        const parts = pjaDueDate.split("/");
+        if (parts.length === 3) {
+          parsedDueDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+      }
+
+      // 3. Insert detailed record into pja_submissions
+      const { error: pjaError } = await supabase.from("pja_submissions").insert([
+        {
+          document_no: newDocNo,
+          vendor_name: vendorName,
+          project_name: projectName,
+          bidang_usaha: pjaBidangUsaha,
+          evaluation_date: evaluationDate || null,
+          evaluator_name: evaluatorName,
+          pic_jabatan: picJabatan,
+          lokasi_pekerjaan: lokasiPekerjaan,
+          answers: pjaAnswers,
+          notes: pjaNotes,
+          due_date: parsedDueDate,
+          keterangan: pjaKeteranganP7,
+        },
+      ]);
+
+      if (pjaError) throw new Error(pjaError.message);
+
+      showToast("success", "PJA submitted successfully! Redirecting...");
+      setTimeout(() => router.push("/pje"), 2000);
+    } catch (err) {
+      console.error("Failed to submit PJA:", err);
+      showToast("error", "Failed to save document. Please check your connection and try again.");
+      setIsSubmitting(false);
+    }
   };
 
   if (!isMounted) {
@@ -830,7 +884,8 @@ function PjeCreateContent() {
                   <button
                     type="button"
                     onClick={() => setPjaStep(2)}
-                    className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm active:scale-[0.98]"
+                    disabled={isSubmitting}
+                    className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
                   >
                     &lt; Prev
                   </button>
@@ -840,9 +895,20 @@ function PjeCreateContent() {
                   <button
                     type="button"
                     onClick={handleFinishSubmit}
-                    className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-8 py-3 text-xs font-extrabold text-white shadow-md hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] transition-all uppercase tracking-wider"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-8 py-3 text-xs font-extrabold text-white shadow-md hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] transition-all uppercase tracking-wider disabled:opacity-60 disabled:pointer-events-none"
                   >
-                    Finish & Submit
+                    {isSubmitting ? (
+                      <>
+                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      "Finish & Submit"
+                    )}
                   </button>
                 </div>
               </div>
@@ -850,6 +916,75 @@ function PjeCreateContent() {
           )}
         </main>
       </div>
+
+      {/* ── Toast Notification ── */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-start gap-4 rounded-2xl px-5 py-4 shadow-2xl transition-all duration-500
+            ${toast.type === "success"
+              ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
+              : "bg-gradient-to-br from-red-500 to-rose-600 text-white"
+            }`}
+          style={{ minWidth: "320px", maxWidth: "420px", animation: "slideInUp 0.4s cubic-bezier(0.16,1,0.3,1)" }}
+          role="alert"
+        >
+          {/* Icon */}
+          <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+            toast.type === "success" ? "bg-white/20" : "bg-white/20"
+          }`}>
+            {toast.type === "success" ? (
+              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            )}
+          </div>
+
+          {/* Text */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold leading-snug">
+              {toast.type === "success" ? "Submission Successful" : "Submission Failed"}
+            </p>
+            <p className="mt-0.5 text-xs font-medium text-white/80 leading-relaxed">
+              {toast.message}
+            </p>
+            {/* Progress bar for success */}
+            {toast.type === "success" && (
+              <div className="mt-2.5 h-0.5 w-full rounded-full bg-white/20 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-white/60"
+                  style={{ animation: "shrinkBar 3.5s linear forwards" }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Close button */}
+          <button
+            onClick={() => setToast(null)}
+            className="mt-0.5 shrink-0 rounded-lg p-1 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Dismiss"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInUp {
+          from { opacity: 0; transform: translateY(24px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes shrinkBar {
+          from { width: 100%; }
+          to   { width: 0%; }
+        }
+      `}</style>
     </div>
   );
 }
