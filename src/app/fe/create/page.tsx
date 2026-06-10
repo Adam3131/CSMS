@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../../components/Sidebar";
 import { DocumentItem, getDocuments, addDocument } from "../../../utils/documentStore";
+import { supabase } from "../../../utils/supabaseClient";
 
 function FeCreateContent() {
   const router = useRouter();
@@ -11,7 +12,16 @@ function FeCreateContent() {
   const formRef = useRef<HTMLFormElement>(null);
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string; visible: boolean } | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message, visible: true });
+    if (type === "success") {
+      setTimeout(() => setToast(null), 3500);
+    }
+  };
 
   // Form states prefilled from searchParams or defaults
   const [projectName, setProjectName] = useState("");
@@ -35,12 +45,14 @@ function FeCreateContent() {
 
   const handleFinishSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     let isValid = true;
     if (formRef.current) {
       isValid = formRef.current.checkValidity();
       if (!isValid) {
         formRef.current.reportValidity();
+        setIsSubmitting(false);
         return;
       }
     }
@@ -51,17 +63,43 @@ function FeCreateContent() {
       year: "numeric",
     }).replace(/ /g, "-");
 
-    await addDocument({
-      nama: projectName || "Unnamed Procurement Project",
-      added: dateFormatted,
-      addedDate: new Date().toISOString(),
-      status: "Done",
-      type: "FE",
-      nilai: hseScore ? parseFloat(hseScore).toFixed(1) : "95.0"
-    });
+    try {
+      const updatedDocs = await addDocument({
+        nama: projectName || "Unnamed Procurement Project",
+        added: dateFormatted,
+        addedDate: new Date().toISOString(),
+        status: "Done",
+        type: "FE",
+        nilai: hseScore ? parseFloat(hseScore).toFixed(1) : "95.0",
+      });
 
-    alert("Final Evaluation (FE) document created successfully!");
-    router.push("/fe");
+      const newDocNo = updatedDocs[0]?.no ?? null;
+      if (!newDocNo) {
+        throw new Error("Could not determine new document number for FE submission.");
+      }
+
+      const { error: feError } = await supabase.from("fe_submissions").insert([
+        {
+          document_no: newDocNo,
+          project_name: projectName || "Unnamed Procurement Project",
+          total_temuan: totalTemuan ? parseInt(totalTemuan, 10) : 0,
+          status_temuan: statusTemuan,
+          hse_score: hseScore ? parseFloat(hseScore) : null,
+          rekomendasi_close: rekomendasiClose,
+        },
+      ]);
+
+      if (feError) {
+        throw feError;
+      }
+
+      showToast("success", "Final Evaluation (FE) saved successfully! Redirecting...");
+      setTimeout(() => router.push("/fe"), 2000);
+    } catch (error) {
+      console.error("Failed to submit FE entry:", error);
+      showToast("error", "Failed to save FE submission. Please check your connection and try again.");
+      setIsSubmitting(false);
+    }
   };
 
   if (!isMounted) {
@@ -76,12 +114,13 @@ function FeCreateContent() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
-      {/* 1. LEFT SIDEBAR */}
-      <Sidebar currentPath="/fe/create" selectedCategory="FE" documents={documents} />
+    <>
+      <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
+        {/* 1. LEFT SIDEBAR */}
+        <Sidebar currentPath="/fe/create" selectedCategory="FE" documents={documents} />
 
-      {/* 2. MAIN CONTENT PANEL */}
-      <div className="flex flex-1 flex-col pl-72">
+        {/* 2. MAIN CONTENT PANEL */}
+        <div className="flex flex-1 flex-col pl-72">
         {/* Sticky Header */}
         <header className="sticky top-0 z-10 flex h-16 w-full items-center justify-between border-b border-slate-200/60 bg-white/80 px-8 backdrop-blur-md">
           <div className="flex items-center gap-3">
@@ -233,17 +272,80 @@ function FeCreateContent() {
                   <button
                     type="submit"
                     onClick={handleFinishSubmit}
-                    className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-8 py-3 text-xs font-extrabold text-white shadow-md hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] transition-all uppercase tracking-wider"
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-8 py-3 text-xs font-extrabold text-white shadow-md hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] transition-all uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Finish & Submit
+                    {isSubmitting ? "Submitting..." : "Finish & Submit"}
                   </button>
                 </div>
               </div>
             </div>
           </div>
         </main>
+        {toast && (
+          <div
+            className={`fixed bottom-6 right-6 z-50 flex items-start gap-4 rounded-2xl px-5 py-4 shadow-2xl transition-all duration-500 ${
+              toast.type === "success"
+                ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
+                : "bg-gradient-to-br from-red-500 to-rose-600 text-white"
+            }`}
+            style={{ minWidth: "320px", maxWidth: "420px", animation: "slideInUp 0.4s cubic-bezier(0.16,1,0.3,1)" }}
+            role="alert"
+          >
+            <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20`}>
+              {toast.type === "success" ? (
+                <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold leading-snug">
+                {toast.type === "success" ? "Submission Successful" : "Submission Failed"}
+              </p>
+              <p className="mt-0.5 text-xs font-medium text-white/80 leading-relaxed">
+                {toast.message}
+              </p>
+              {toast.type === "success" && (
+                <div className="mt-2.5 h-0.5 w-full rounded-full bg-white/20 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-white/60"
+                    style={{ animation: "shrinkBar 3.5s linear forwards" }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setToast(null)}
+              className="mt-0.5 shrink-0 rounded-lg p-1 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Dismiss"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
+
+    <style>{`
+      @keyframes slideInUp {
+        from { opacity: 0; transform: translateY(24px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes shrinkBar {
+        from { width: 100%; }
+        to   { width: 0%; }
+      }
+    `}</style>
+    </>
   );
 }
 
