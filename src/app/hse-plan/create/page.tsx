@@ -17,16 +17,16 @@ export default function CreateHsePlanPage() {
   const [hsePlanStep, setHsePlanStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Form inputs
-  const [vendorName, setVendorName] = useState("PT Warna SeBahtera");
-  const [projectName, setProjectName] = useState("Pengadaan Time Charter 1 (one) Unit VLGC Laycan 19-20 Februari 2024 (LPGC SC Commander LVII)");
-  const [evaluationDate, setEvaluationDate] = useState("2024-02-22");
-  const [evaluatorName, setEvaluatorName] = useState("PUTRI FATIMA SUNNIA");
+  const [vendorName, setVendorName] = useState("");
+  const [projectName, setProjectName] = useState("");
+  const [evaluationDate, setEvaluationDate] = useState("");
+  const [evaluatorName, setEvaluatorName] = useState("");
   const [lokasiPekerjaan, setLokasiPekerjaan] = useState("");
   const [picJabatan, setPicJabatan] = useState("");
 
   // Step 2 Matrix Scores (Kepemimpinan & Akuntabilitas)
   const [matrixScores, setMatrixScores] = useState<Record<string, number>>({
-    score1: 0.25,
+    score1: 0,
     score2: 0,
     score3: 0,
     score4: 0,
@@ -58,6 +58,8 @@ export default function CreateHsePlanPage() {
     setIsMounted(true);
     getDocuments().then(setDocuments);
   }, []);
+
+
 
   const handleMatrixChange = (key: string, val: number) => {
     setMatrixScores((prev) => ({ ...prev, [key]: val }));
@@ -134,39 +136,63 @@ export default function CreateHsePlanPage() {
       year: "numeric",
     }).replace(/ /g, "-");
 
-    if (isSupabaseConfigured) {
-      // 1. Insert into documents table
-      const { data: docData, error: docError } = await supabase
-        .from("documents")
-        .insert([
-          {
-            nama: projectName,
-            added: dateFormatted,
-            added_date: new Date().toISOString(),
-            status: "Done",
-            type: "HSE Plan",
-            nilai: percentHsePlanScore, // Save final percentage score (e.g. "45%")
-          },
-        ])
-        .select();
+    let docNo: number | null = null;
 
-      if (docError) {
-        alert("Failed to save document: " + docError.message);
-        return;
+    if (isSupabaseConfigured) {
+      // Check if we selected an existing document from our list
+      const existingDoc = documents.find(d => d.nama === projectName && d.type === "HSE Plan");
+
+      if (existingDoc) {
+        docNo = existingDoc.no;
+        // Update the existing document's status and score
+        const { error: updateError } = await supabase
+          .from("documents")
+          .update({
+            status: "Done",
+            nilai: percentHsePlanScore,
+          })
+          .eq("no", docNo);
+
+        if (updateError) {
+          alert("Failed to update document: " + updateError.message);
+          return;
+        }
+      } else {
+        // Insert a new document
+        const { data: docData, error: docError } = await supabase
+          .from("documents")
+          .insert([
+            {
+              nama: projectName,
+              added: dateFormatted,
+              added_date: new Date().toISOString(),
+              status: "Done",
+              type: "HSE Plan",
+              nilai: percentHsePlanScore,
+            },
+          ])
+          .select();
+
+        if (docError) {
+          alert("Failed to save document: " + docError.message);
+          return;
+        }
+
+        if (docData && docData.length > 0) {
+          docNo = docData[0].no;
+        }
       }
 
-      if (docData && docData.length > 0) {
-        const docNo = docData[0].no;
-        
-        // 2. Insert into hse_plan_submissions table
+      if (docNo) {
+        // 2. Upsert into hse_plan_submissions table
         const { error: subError } = await supabase
           .from("hse_plan_submissions")
-          .insert([
+          .upsert([
             {
               document_no: docNo,
               vendor_name: vendorName,
               project_name: projectName,
-              evaluation_date: evaluationDate,
+              evaluation_date: evaluationDate || null, // Protect against empty date strings causing PG invalid date errors
               evaluator_name: evaluatorName,
               lokasi_pekerjaan: lokasiPekerjaan,
               pic_jabatan: picJabatan,
@@ -185,10 +211,12 @@ export default function CreateHsePlanPage() {
                 percentHsePlanScore,
               },
             },
-          ]);
+          ], { onConflict: "document_no" });
 
         if (subError) {
           console.error("Failed to save HSE Plan details: ", subError.message);
+          alert("Failed to save HSE Plan details: " + subError.message);
+          return;
         }
       }
     } else {
@@ -301,9 +329,20 @@ export default function CreateHsePlanPage() {
                     <div>
                       <h3 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">HSE Plan Form</h3>
                     </div>
+
+
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Judul Pekerjaan</label>
-                      <input type="text" readOnly value={projectName} className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 outline-none cursor-not-allowed font-semibold" />
+                      <label htmlFor="judul-hse" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Judul Pekerjaan</label>
+                      <input
+                        type="text"
+                        id="judul-hse"
+                        required
+                        placeholder="Masukkan judul pekerjaan..."
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-800 outline-none shadow-sm transition-all focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 font-semibold"
+                      />
+                      <div className="error-msg text-[10px] font-semibold text-red-650 mt-1">Judul pekerjaan diperlukan.</div>
                     </div>
                     <div className="space-y-1.5">
                       <label htmlFor="lokasi-hse" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lokasi Pekerjaan</label>
