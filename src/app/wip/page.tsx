@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DocumentItem, getDocuments } from "../../utils/documentStore";
 import Sidebar from "../../components/Sidebar";
+import { isSupabaseConfigured } from "../../utils/supabaseClient";
 
 const MOCK_WIP_PROCUREMENTS = [
   {
@@ -100,6 +101,16 @@ export default function WipLandingPage() {
   const wipDocumentsList = useMemo(() => {
     // Get new documents created dynamically of type "WIP" from localStore
     const dynamicWipDocs = documents.filter((doc) => doc.type === "WIP");
+    
+    if (isSupabaseConfigured) {
+      return dynamicWipDocs.map((doc) => ({
+        no: doc.no,
+        nama: doc.nama,
+        pelaksanaan: doc.added,
+        nilai: doc.nilai || "95.0",
+        type: "WIP"
+      }));
+    }
     
     // Standard default rows from mockup
     const rows = [...DEFAULT_WIP_ROWS];

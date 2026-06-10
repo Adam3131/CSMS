@@ -2,8 +2,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase, isSupabaseConfigured } from "../../utils/supabaseClient";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [nameAriaInvalid, setNameAriaInvalid] = useState(false);
   const [emailAriaInvalid, setEmailAriaInvalid] = useState(false);
@@ -53,7 +56,7 @@ export default function RegisterPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (nameRef.current && emailRef.current && passwordRef.current) {
       const isNameValid = nameRef.current.validity.valid;
@@ -66,10 +69,39 @@ export default function RegisterPage() {
 
       if (isNameValid && isEmailValid && isPasswordValid) {
         setIsLoading(true);
-        setTimeout(() => {
+        if (!isSupabaseConfigured) {
+          // Simulation mode fallback
+          setTimeout(() => {
+            setIsLoading(false);
+            alert("Account created successfully! (Simulation Mode)");
+            router.push("/login");
+          }, 1500);
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase.auth.signUp({
+            email: emailRef.current.value,
+            password: passwordRef.current.value,
+            options: {
+              data: {
+                full_name: nameRef.current.value,
+                role: "Officer", // Default role
+              },
+            },
+          });
+
+          if (error) {
+            alert("Registration Failed: " + error.message);
+          } else {
+            alert("Registration successful! Please check your email to verify your account.");
+            router.push("/login");
+          }
+        } catch (err: any) {
+          alert("Error: " + (err.message || "An unexpected error occurred."));
+        } finally {
           setIsLoading(false);
-          alert("Account created successfully! (Simulation)");
-        }, 1500);
+        }
       }
     }
   };

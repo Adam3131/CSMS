@@ -275,6 +275,7 @@ export default function HsePlanLandingPage() {
                     <th scope="col" className="px-5 py-3.5 w-32">Status</th>
                     <th scope="col" className="px-5 py-3.5 w-32">Document</th>
                     <th scope="col" className="px-5 py-3.5 w-52">Review Status</th>
+                    <th scope="col" className="px-5 py-3.5 w-24 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
@@ -315,6 +316,14 @@ export default function HsePlanLandingPage() {
                               <span>Pending review by User</span>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          <Link
+                            href={`/hse-plan/detail/${doc.no}`}
+                            className="rounded-lg bg-blue-50 border border-blue-200 text-blue-650 hover:bg-blue-100 px-3 py-1.5 text-[10px] font-extrabold transition-all"
+                          >
+                            Review
+                          </Link>
                         </td>
                       </tr>
                     ))

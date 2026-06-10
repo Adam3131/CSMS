@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../../components/Sidebar";
 import { DocumentItem, getDocuments, addDocument } from "../../../utils/documentStore";
+import { supabase, isSupabaseConfigured } from "../../../utils/supabaseClient";
 
 export default function CreateHsePlanPage() {
   const router = useRouter();
@@ -133,13 +134,74 @@ export default function CreateHsePlanPage() {
       year: "numeric",
     }).replace(/ /g, "-");
 
-    await addDocument({
-      nama: projectName,
-      added: dateFormatted,
-      addedDate: new Date().toISOString(),
-      status: "Done",
-      type: "HSE Plan",
-    });
+    if (isSupabaseConfigured) {
+      // 1. Insert into documents table
+      const { data: docData, error: docError } = await supabase
+        .from("documents")
+        .insert([
+          {
+            nama: projectName,
+            added: dateFormatted,
+            added_date: new Date().toISOString(),
+            status: "Done",
+            type: "HSE Plan",
+            nilai: percentHsePlanScore, // Save final percentage score (e.g. "45%")
+          },
+        ])
+        .select();
+
+      if (docError) {
+        alert("Failed to save document: " + docError.message);
+        return;
+      }
+
+      if (docData && docData.length > 0) {
+        const docNo = docData[0].no;
+        
+        // 2. Insert into hse_plan_submissions table
+        const { error: subError } = await supabase
+          .from("hse_plan_submissions")
+          .insert([
+            {
+              document_no: docNo,
+              vendor_name: vendorName,
+              project_name: projectName,
+              evaluation_date: evaluationDate,
+              evaluator_name: evaluatorName,
+              lokasi_pekerjaan: lokasiPekerjaan,
+              pic_jabatan: picJabatan,
+              matrix_scores: {
+                matrixScores,
+                matrixStep3Scores,
+                matrixStep8Scores,
+                table1Total,
+                table2Total,
+                totalProses1,
+                step3Table1Total,
+                step3Table2Total,
+                totalProses2,
+                step8Total,
+                totalHsePlanScore,
+                percentHsePlanScore,
+              },
+            },
+          ]);
+
+        if (subError) {
+          console.error("Failed to save HSE Plan details: ", subError.message);
+        }
+      }
+    } else {
+      // LocalStorage fallback (simulation mode)
+      await addDocument({
+        nama: projectName,
+        added: dateFormatted,
+        addedDate: new Date().toISOString(),
+        status: "Done",
+        type: "HSE Plan",
+        nilai: percentHsePlanScore,
+      });
+    }
 
     alert("HSE Plan document created successfully!");
     router.push("/hse-plan");
@@ -381,8 +443,8 @@ export default function CreateHsePlanPage() {
                               >
                                 <option value="0">0.00</option>
                                 <option value="0.25">0.25</option>
-                                <option value="0.50">0.50</option>
-                                <option value="1.00">1.00</option>
+                                <option value="0.5">0.50</option>
+                                <option value="1">1.00</option>
                               </select>
                             </td>
                             <td className="px-4 py-3 text-center text-slate-900 font-bold">
@@ -435,8 +497,8 @@ export default function CreateHsePlanPage() {
                               >
                                 <option value="0">0.00</option>
                                 <option value="0.25">0.25</option>
-                                <option value="0.50">0.50</option>
-                                <option value="1.00">1.00</option>
+                                <option value="0.5">0.50</option>
+                                <option value="1">1.00</option>
                               </select>
                             </td>
                             <td className="px-4 py-3 text-center text-slate-900 font-bold">
@@ -542,8 +604,8 @@ export default function CreateHsePlanPage() {
                                 >
                                   <option value="0">0.00</option>
                                   <option value="0.25">0.25</option>
-                                  <option value="0.50">0.50</option>
-                                  <option value="1.00">1.00</option>
+                                  <option value="0.5">0.50</option>
+                                  <option value="1">1.00</option>
                                 </select>
                               </td>
                               <td className="px-4 py-3 text-center text-slate-900 font-bold">
@@ -576,8 +638,8 @@ export default function CreateHsePlanPage() {
                               >
                                 <option value="0">0.00</option>
                                 <option value="0.25">0.25</option>
-                                <option value="0.50">0.50</option>
-                                <option value="1.00">1.00</option>
+                                <option value="0.5">0.50</option>
+                                <option value="1">1.00</option>
                               </select>
                             </td>
                             <td className="px-4 py-3 w-24 text-center text-slate-900 font-bold font-semibold">
@@ -634,8 +696,8 @@ export default function CreateHsePlanPage() {
                                 >
                                   <option value="0">0.00</option>
                                   <option value="0.25">0.25</option>
-                                  <option value="0.50">0.50</option>
-                                  <option value="1.00">1.00</option>
+                                  <option value="0.5">0.50</option>
+                                  <option value="1">1.00</option>
                                 </select>
                               </td>
                               <td className="px-4 py-3 text-center text-slate-900 font-bold">
@@ -737,8 +799,8 @@ export default function CreateHsePlanPage() {
                               >
                                 <option value="0">0.00</option>
                                 <option value="0.25">0.25</option>
-                                <option value="0.50">0.50</option>
-                                <option value="1.00">1.00</option>
+                                <option value="0.5">0.50</option>
+                                <option value="1">1.00</option>
                               </select>
                             </td>
                             <td className="px-4 py-3 text-center text-slate-900 font-bold">

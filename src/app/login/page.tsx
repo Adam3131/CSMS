@@ -2,8 +2,11 @@
 
 import React, { useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase, isSupabaseConfigured } from "../../utils/supabaseClient";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [emailAriaInvalid, setEmailAriaInvalid] = useState(false);
   const [passwordAriaInvalid, setPasswordAriaInvalid] = useState(false);
@@ -32,7 +35,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (emailRef.current && passwordRef.current) {
       const isEmailValid = emailRef.current.validity.valid;
@@ -43,10 +46,32 @@ export default function LoginPage() {
 
       if (isEmailValid && isPasswordValid) {
         setIsLoading(true);
-        setTimeout(() => {
+        if (!isSupabaseConfigured) {
+          // Simulation mode fallback
+          setTimeout(() => {
+            setIsLoading(false);
+            alert("Signed in successfully! (Simulation Mode)");
+            router.push("/dashboard");
+          }, 1500);
+          return;
+        }
+
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: emailRef.current.value,
+            password: passwordRef.current.value,
+          });
+
+          if (error) {
+            alert("Login Failed: " + error.message);
+          } else {
+            router.push("/dashboard");
+          }
+        } catch (err: any) {
+          alert("Error: " + (err.message || "An unexpected error occurred."));
+        } finally {
           setIsLoading(false);
-          alert("Signed in successfully! (Simulation)");
-        }, 1500);
+        }
       }
     }
   };
