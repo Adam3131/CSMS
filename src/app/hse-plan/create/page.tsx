@@ -55,7 +55,7 @@ export default function CreateHsePlanPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
   }, []);
 
   const handleMatrixChange = (key: string, val: number) => {
@@ -126,14 +126,14 @@ export default function CreateHsePlanPage() {
     return Math.round((totalHsePlanScore / 292) * 100) + "%";
   }, [totalHsePlanScore]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const dateFormatted = new Date().toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     }).replace(/ /g, "-");
 
-    addDocument({
+    await addDocument({
       nama: projectName,
       added: dateFormatted,
       addedDate: new Date().toISOString(),

@@ -87,7 +87,7 @@ export default function FeLandingPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
   }, []);
 
   // Filter and build the FE documents list matching the screenshot + any new FE documents added from wizard

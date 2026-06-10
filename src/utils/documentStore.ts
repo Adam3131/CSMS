@@ -1,3 +1,5 @@
+import { supabase, isSupabaseConfigured } from "./supabaseClient";
+
 export interface DocumentItem {
   no: number;
   nama: string;
@@ -87,7 +89,7 @@ const DEFAULT_DOCUMENTS: DocumentItem[] = [
 
 const STORAGE_KEY = "csms_documents";
 
-export function getDocuments(): DocumentItem[] {
+function getLocalDocuments(): DocumentItem[] {
   if (typeof window === "undefined") {
     return DEFAULT_DOCUMENTS;
   }
@@ -104,19 +106,101 @@ export function getDocuments(): DocumentItem[] {
   }
 }
 
-export function saveDocuments(docs: DocumentItem[]): void {
+function saveLocalDocuments(docs: DocumentItem[]): void {
   if (typeof window !== "undefined") {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
   }
 }
 
-export function addDocument(doc: Omit<DocumentItem, "no">): DocumentItem[] {
-  const current = getDocuments();
-  const newDoc: DocumentItem = {
-    ...doc,
-    no: current.length + 1,
-  };
-  const updated = [newDoc, ...current];
-  saveDocuments(updated);
-  return updated;
+// Kept for backward compatibility if any local scripts imports it
+export function saveDocuments(docs: DocumentItem[]): void {
+  saveLocalDocuments(docs);
+}
+
+export async function getDocuments(): Promise<DocumentItem[]> {
+  if (!isSupabaseConfigured) {
+    return getLocalDocuments();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("documents")
+      .select("*")
+      .order("no", { ascending: false });
+
+    if (error) {
+      console.warn("Failed to fetch from Supabase (falling back to localStorage):", error.message);
+      return getLocalDocuments();
+    }
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    return data.map((item: any) => ({
+      no: item.no,
+      nama: item.nama,
+      added: item.added,
+      addedDate: item.added_date || item.addedDate,
+      status: item.status,
+      type: item.type,
+      nilai: item.nilai || undefined,
+    }));
+  } catch (err) {
+    console.error("Error in getDocuments:", err);
+    return getLocalDocuments();
+  }
+}
+
+export async function addDocument(doc: Omit<DocumentItem, "no">): Promise<DocumentItem[]> {
+  if (!isSupabaseConfigured) {
+    const current = getLocalDocuments();
+    const newDoc: DocumentItem = {
+      ...doc,
+      no: current.length + 1,
+    };
+    const updated = [newDoc, ...current];
+    saveLocalDocuments(updated);
+    return updated;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("documents")
+      .insert([
+        {
+          nama: doc.nama,
+          added: doc.added,
+          added_date: doc.addedDate,
+          status: doc.status,
+          type: doc.type,
+          nilai: doc.nilai || null,
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.warn("Failed to add to Supabase (falling back to localStorage):", error.message);
+      const current = getLocalDocuments();
+      const newDoc: DocumentItem = {
+        ...doc,
+        no: current.length + 1,
+      };
+      const updated = [newDoc, ...current];
+      saveLocalDocuments(updated);
+      return updated;
+    }
+
+    return getDocuments();
+  } catch (err) {
+    console.error("Error in addDocument:", err);
+    const current = getLocalDocuments();
+    const newDoc: DocumentItem = {
+      ...doc,
+      no: current.length + 1,
+    };
+    const updated = [newDoc, ...current];
+    saveLocalDocuments(updated);
+    return updated;
+  }
 }

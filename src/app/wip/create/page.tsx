@@ -31,7 +31,7 @@ function WipCreateContent() {
   // Sync parameters from landing page
   useEffect(() => {
     setIsMounted(true);
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
 
     const projectParam = searchParams.get("projectName");
     const pelaksanaanParam = searchParams.get("pelaksanaan");
@@ -82,7 +82,7 @@ function WipCreateContent() {
     row7: { target: "", actual: "", sanksi: "" },
   });
 
-  const handleFinishSubmit = () => {
+  const handleFinishSubmit = async () => {
     const dateFormatted = new Date().toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "short",
@@ -90,7 +90,7 @@ function WipCreateContent() {
     }).replace(/ /g, "-");
 
     // Dynamic mock score or average target achievement rate
-    addDocument({
+    await addDocument({
       nama: wipJenisPekerjaan,
       added: dateFormatted,
       addedDate: new Date().toISOString(),

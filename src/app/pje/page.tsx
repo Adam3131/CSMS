@@ -50,7 +50,7 @@ export default function PjeLandingPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
   }, []);
 
   const pjaDocuments = useMemo(() => {

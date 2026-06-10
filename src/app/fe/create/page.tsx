@@ -22,7 +22,7 @@ function FeCreateContent() {
 
   useEffect(() => {
     setIsMounted(true);
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
 
     const projectParam = searchParams.get("projectName");
     const nilaiParam = searchParams.get("nilai");
@@ -33,7 +33,7 @@ function FeCreateContent() {
     if (feedbackParam) setRekomendasiClose(feedbackParam);
   }, [searchParams]);
 
-  const handleFinishSubmit = (e: React.FormEvent) => {
+  const handleFinishSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     let isValid = true;
@@ -51,7 +51,7 @@ function FeCreateContent() {
       year: "numeric",
     }).replace(/ /g, "-");
 
-    addDocument({
+    await addDocument({
       nama: projectName || "Unnamed Procurement Project",
       added: dateFormatted,
       addedDate: new Date().toISOString(),

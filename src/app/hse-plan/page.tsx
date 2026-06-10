@@ -16,7 +16,7 @@ export default function HsePlanLandingPage() {
   // Avoid hydration mismatch
   useEffect(() => {
     setIsMounted(true);
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
   }, []);
 
   // Filter for HSE Plan documents only

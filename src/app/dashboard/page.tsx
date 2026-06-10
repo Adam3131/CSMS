@@ -23,7 +23,7 @@ function DashboardContent() {
 
   // Sync with searchParams on mount/update
   useEffect(() => {
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
   }, []);
 
   useEffect(() => {

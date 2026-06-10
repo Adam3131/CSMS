@@ -30,7 +30,7 @@ function PjeCreateContent() {
   // Sync params on mount
   useEffect(() => {
     setIsMounted(true);
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
 
     const companyParam = searchParams.get("company");
     const projectParam = searchParams.get("projectName");
@@ -114,7 +114,7 @@ function PjeCreateContent() {
     return yesCount;
   }, [pjaAnswers]);
 
-  const handleFinishSubmit = () => {
+  const handleFinishSubmit = async () => {
     const dateFormatted = new Date().toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "short",
@@ -123,7 +123,7 @@ function PjeCreateContent() {
 
     const calculatedScore = pjaTotalSemuaProses.toFixed(2);
 
-    addDocument({
+    await addDocument({
       nama: projectName,
       added: dateFormatted,
       addedDate: new Date().toISOString(),

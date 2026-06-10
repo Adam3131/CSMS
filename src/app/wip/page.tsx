@@ -93,7 +93,7 @@ export default function WipLandingPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    setDocuments(getDocuments());
+    getDocuments().then(setDocuments);
   }, []);
 
   // Filter and build the WIP documents list matching the screenshot + any new WIP documents added from wizard
