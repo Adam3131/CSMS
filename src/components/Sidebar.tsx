@@ -11,6 +11,19 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPath, selectedCategory = "All", documents }: SidebarProps) {
+  const [isSimulated, setIsSimulated] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsSimulated(localStorage.getItem("csms_force_simulation") === "true");
+    }
+  }, []);
+
+  const handleReconnect = () => {
+    localStorage.removeItem("csms_force_simulation");
+    window.location.reload();
+  };
+
   // We can calculate stats from the documents array
   const stats = React.useMemo(() => {
     return {
@@ -134,8 +147,29 @@ export default function Sidebar({ currentPath, selectedCategory = "All", documen
         </div>
       </div>
 
+      {/* Offline Alert Badge */}
+      {isSimulated && (
+        <div className="mt-auto mb-4 rounded-xl border border-amber-250 bg-amber-50 p-3 shadow-sm">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-800">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Offline Simulation Mode
+            </div>
+            <p className="text-[9px] text-amber-600/90 leading-normal font-medium">
+              Running with local simulated database because the main registry was unreachable.
+            </p>
+            <button
+              onClick={handleReconnect}
+              className="w-full rounded-lg bg-amber-600/90 py-1.5 text-center text-[9px] font-bold text-white transition-all hover:bg-amber-600 active:scale-[0.98] cursor-pointer"
+            >
+              Reconnect to Database
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* User profile footer info */}
-      <div className="border-t border-slate-200/60 pt-4 mt-auto">
+      <div className={`border-t border-slate-200/60 pt-4 ${!isSimulated ? "mt-auto" : "mt-2"}`}>
         <div className="flex items-center gap-3 px-1">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs">
             PS
