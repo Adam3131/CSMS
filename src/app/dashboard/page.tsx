@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import { DocumentItem, getDocuments, addDocument } from "../../utils/documentStore";
+import { getCurrentUser, getRoleDetails } from "../../utils/userStore";
 
 function DashboardContent() {
   const router = useRouter();
@@ -20,6 +21,34 @@ function DashboardContent() {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [sortField, setSortField] = useState<"nama" | "added">("nama");
   const [sortAsc, setSortAsc] = useState(true);
+
+  const [currentUser, setCurrentUser] = useState({
+    email: "putri.fatima@pertamina.com",
+    role: "Admin" as any,
+    fullName: "PUTRI FATIMA SUNNIA",
+  });
+
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+    const handleSessionChange = () => {
+      setCurrentUser(getCurrentUser());
+    };
+    window.addEventListener("user-session-changed", handleSessionChange);
+    return () => {
+      window.removeEventListener("user-session-changed", handleSessionChange);
+    };
+  }, []);
+
+  const roleDetails = getRoleDetails(currentUser.role);
+  const userInitials = currentUser.fullName
+    ? currentUser.fullName
+        .split(" ")
+        .filter(Boolean)
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "US";
 
   // Sync with searchParams on mount/update
   useEffect(() => {
@@ -120,11 +149,11 @@ function DashboardContent() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-bold text-slate-955">PUTRI FATIMA SUNNIA</p>
-              <p className="text-[10px] font-medium text-slate-400">HSSE Governance Officer</p>
+              <p className="text-sm font-bold text-slate-800">{currentUser.fullName}</p>
+              <p className="text-[10px] font-medium text-slate-450">{roleDetails.position}</p>
             </div>
             <div className="h-10 w-10 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-sm shadow-inner">
-              PS
+              {userInitials}
             </div>
           </div>
         </header>

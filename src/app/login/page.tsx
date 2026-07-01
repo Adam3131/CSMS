@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "../../utils/supabaseClient";
+import { getUsers, setCurrentUser } from "../../utils/userStore";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,10 +47,41 @@ export default function LoginPage() {
 
       if (isEmailValid && isPasswordValid) {
         setIsLoading(true);
+        const enteredEmail = emailRef.current.value.trim().toLowerCase();
+        const enteredPassword = passwordRef.current.value;
+
+        // Check local store first (for created users & simulated credentials)
+        const localUsers = getUsers();
+        const matchedLocal = localUsers.find((u) => u.email.toLowerCase() === enteredEmail);
+
+        if (matchedLocal) {
+          if (matchedLocal.password === enteredPassword) {
+            setTimeout(() => {
+              setIsLoading(false);
+              setCurrentUser({
+                email: matchedLocal.email,
+                role: matchedLocal.role,
+                fullName: matchedLocal.fullName,
+              });
+              router.push("/dashboard");
+            }, 800);
+            return;
+          } else {
+            setIsLoading(false);
+            alert("Login Failed: Invalid password for this account.");
+            return;
+          }
+        }
+
         if (!isSupabaseConfigured) {
           // Simulation mode fallback
           setTimeout(() => {
             setIsLoading(false);
+            setCurrentUser({
+              email: enteredEmail,
+              role: "Admin",
+              fullName: "PUTRI FATIMA SUNNIA",
+            });
             alert("Signed in successfully! (Simulation Mode)");
             router.push("/dashboard");
           }, 1500);
@@ -58,13 +90,25 @@ export default function LoginPage() {
 
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
-            email: emailRef.current.value,
-            password: passwordRef.current.value,
+            email: enteredEmail,
+            password: enteredPassword,
           });
 
           if (error) {
             alert("Login Failed: " + error.message);
-          } else {
+          } else if (data?.user) {
+            // Fetch profile for real supabase user
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name, role")
+              .eq("id", data.user.id)
+              .single();
+
+            setCurrentUser({
+              email: data.user.email || enteredEmail,
+              role: (profile?.role as any) || "User",
+              fullName: profile?.full_name || data.user.email || "Pertamina User",
+            });
             router.push("/dashboard");
           }
         } catch (err: any) {
@@ -137,13 +181,7 @@ export default function LoginPage() {
               Welcome back
             </h1>
             <p className="text-sm text-slate-500">
-              Don't have an account?{" "}
-              <Link
-                href="/register"
-                className="font-semibold text-blue-600 hover:text-blue-500 transition-colors underline decoration-blue-600/30 underline-offset-4"
-              >
-                Sign up for free
-              </Link>
+              Please contact your administrator to get an account.
             </p>
           </div>
 
