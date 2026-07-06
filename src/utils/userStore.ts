@@ -1,5 +1,7 @@
 "use client";
 
+import { supabase, isSupabaseConfigured } from "./supabaseClient";
+
 export type UserRole = "Admin" | "User" | "Manajer" | "Procurement";
 
 export interface UserItem {
@@ -78,17 +80,57 @@ export function saveUsers(users: UserItem[]): void {
   }
 }
 
-export function createUser(
+export async function createUser(
   email: string,
   role: UserRole,
   fullName: string,
   password?: string
-): UserItem | null {
+): Promise<UserItem | null> {
   const users = getUsers();
-  
-  // Check if email already exists
+
   if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
     return null;
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.toLowerCase(),
+        password: password || "password",
+        options: {
+          data: {
+            full_name: fullName,
+            role,
+          },
+        },
+      });
+
+      if (error) {
+        console.error("Supabase sign-up failed", error);
+        return null;
+      }
+
+      const newUser: UserItem = {
+        id: data.user?.id || `user-${Math.random().toString(36).slice(2, 11)}`,
+        email: email.toLowerCase(),
+        role,
+        fullName,
+        password: password || "password",
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedUsers = [...users, newUser];
+      saveUsers(updatedUsers);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("user-created"));
+      }
+
+      return newUser;
+    } catch (err) {
+      console.error("Unexpected Supabase sign-up error", err);
+      return null;
+    }
   }
 
   const newUser: UserItem = {
@@ -103,7 +145,6 @@ export function createUser(
   const updatedUsers = [...users, newUser];
   saveUsers(updatedUsers);
 
-  // Dispatch custom event to notify other components (like the user table)
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("user-created"));
   }

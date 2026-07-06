@@ -56,6 +56,9 @@ export default function LoginPage() {
 
         if (matchedLocal) {
           if (matchedLocal.password === enteredPassword) {
+            const normalizedRole = (matchedLocal.role as string).toLowerCase();
+            const targetPath = normalizedRole === "manajer" || normalizedRole === "manager" ? "/manager" : "/dashboard";
+
             setTimeout(() => {
               setIsLoading(false);
               setCurrentUser({
@@ -63,7 +66,7 @@ export default function LoginPage() {
                 role: matchedLocal.role,
                 fullName: matchedLocal.fullName,
               });
-              router.push("/dashboard");
+              router.push(targetPath);
             }, 800);
             return;
           } else {
@@ -104,12 +107,15 @@ export default function LoginPage() {
               .eq("id", data.user.id)
               .single();
 
+            const resolvedRole = (profile?.role as any) || "User";
+            const targetPath = resolvedRole === "Manajer" || resolvedRole === "Manager" ? "/manager" : "/dashboard";
+
             setCurrentUser({
               email: data.user.email || enteredEmail,
-              role: (profile?.role as any) || "User",
+              role: resolvedRole,
               fullName: profile?.full_name || data.user.email || "Pertamina User",
             });
-            router.push("/dashboard");
+            router.push(targetPath);
           }
         } catch (err: any) {
           alert("Error: " + (err.message || "An unexpected error occurred."));

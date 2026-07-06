@@ -1,13 +1,17 @@
 import { supabase, isSupabaseConfigured } from "./supabaseClient";
 
+const STORAGE_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "documents";
+
 export interface DocumentItem {
   no: number;
   nama: string;
   added: string;
   addedDate: string; // Stored as ISO string in JSON
-  status: "New" | "On Progress" | "Done";
+  status: "New" | "On Progress" | "Done" | "On Review" | "Approved" | "Need Revision" | "Draft";
   type: "HSE Plan" | "PJA" | "WIP" | "FE";
   nilai?: string;
+  fileName?: string;
+  filePath?: string;
 }
 
 const DEFAULT_DOCUMENTS: DocumentItem[] = [
@@ -145,10 +149,85 @@ export async function getDocuments(): Promise<DocumentItem[]> {
       status: item.status,
       type: item.type,
       nilai: item.nilai || undefined,
+      fileName: item.file_name || undefined,
+      filePath: item.file_path || undefined,
     }));
   } catch (err) {
     console.error("Error in getDocuments:", err);
     return getLocalDocuments();
+  }
+}
+
+export async function uploadDocumentFile(file: File): Promise<{ fileName: string; filePath: string } | null> {
+  if (!isSupabaseConfigured) {
+    return {
+      fileName: file.name,
+      filePath: `local/${Date.now()}_${file.name}`,
+    };
+  }
+
+  const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `${Date.now()}_${safeFileName}`;
+
+  try {
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(storagePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+    if (error || !data) {
+      console.error(
+        `Failed to upload file to Supabase Storage bucket '${STORAGE_BUCKET}':`,
+        error?.message || "unknown error"
+      );
+      if (error?.message?.includes("Bucket not found")) {
+        console.error(
+          `Supabase Storage bucket '${STORAGE_BUCKET}' does not exist. Create it in the Supabase dashboard or set NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET in your .env.local.`
+        );
+      }
+      return null;
+    }
+
+    return {
+      fileName: file.name,
+      filePath: data.path,
+    };
+  } catch (err) {
+    console.error("Error uploading file to Supabase Storage:", err);
+    return null;
+  }
+}
+
+export async function openDocument(filePath: string): Promise<string | null> {
+  if (!isSupabaseConfigured) {
+    // no storage configured
+    return null;
+  }
+
+  try {
+    // Try to get a public URL first
+    const { data: publicData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+    if (publicData && (publicData as any).publicUrl) {
+      return (publicData as any).publicUrl as string;
+    }
+  } catch (err) {
+    // ignore and try download
+  }
+
+  try {
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(filePath);
+    if (error || !data) {
+      console.error("Failed to download file from storage:", error?.message || error);
+      return null;
+    }
+
+    const url = URL.createObjectURL(data);
+    // Caller can open the returned blob URL in a new tab. We'll schedule a revoke.
+    setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
+    return url;
+  } catch (err) {
+    console.error("Error downloading file from Supabase:", err);
+    return null;
   }
 }
 
@@ -165,22 +244,38 @@ export async function addDocument(doc: Omit<DocumentItem, "no">): Promise<Docume
   }
 
   try {
+    // Map application statuses to database-allowed values to satisfy the check constraint
+    const mapStatus = (status: string) => {
+      if (status === "Approved") return "Done";
+      if (["On Review", "Need Revision", "Draft"].includes(status)) return "On Progress";
+      const valid = ["New", "On Progress", "Done"];
+      return valid.includes(status) ? status : "On Progress";
+    };
+    const statusToInsert = mapStatus(doc.status);
+    const ALLOWED_TYPES = ["HSE Plan", "PJA", "WIP", "FE"];
+    const typeToInsert = ALLOWED_TYPES.includes(doc.type) ? doc.type : "HSE Plan";
+
+    const payload = {
+      nama: doc.nama,
+      added: doc.added,
+      added_date: doc.addedDate,
+      status: statusToInsert,
+      type: typeToInsert,
+      file_name: doc.fileName || null,
+      file_path: doc.filePath || null,
+      nilai: doc.nilai || null,
+    };
+
     const { data, error } = await supabase
       .from("documents")
       .insert([
-        {
-          nama: doc.nama,
-          added: doc.added,
-          added_date: doc.addedDate,
-          status: doc.status,
-          type: doc.type,
-          nilai: doc.nilai || null,
-        },
+        payload,
       ])
       .select();
 
     if (error) {
-      console.warn("Failed to add to Supabase (falling back to localStorage):", error.message);
+      console.warn("Failed to add to Supabase (falling back to localStorage):", error?.message || error);
+      console.error("Insert payload:", JSON.stringify(payload));
       const current = getLocalDocuments();
       const newDoc: DocumentItem = {
         ...doc,
@@ -202,5 +297,57 @@ export async function addDocument(doc: Omit<DocumentItem, "no">): Promise<Docume
     const updated = [newDoc, ...current];
     saveLocalDocuments(updated);
     return updated;
+  }
+}
+
+// Insert a document record and return detailed result for calling code to inspect
+export async function insertDocumentRecord(doc: Omit<DocumentItem, "no">): Promise<{ success: boolean; data?: any; error?: any }> {
+  if (!isSupabaseConfigured) {
+    // Simulate insert locally
+    const current = getLocalDocuments();
+    const newDoc: DocumentItem = {
+      ...doc,
+      no: current.length + 1,
+    };
+    const updated = [newDoc, ...current];
+    saveLocalDocuments(updated);
+    return { success: true, data: newDoc };
+  }
+
+  try {
+    // Map application statuses to database-allowed values to satisfy the check constraint
+    const mapStatus = (status: string) => {
+      if (status === "Approved") return "Done";
+      if (["On Review", "Need Revision", "Draft"].includes(status)) return "On Progress";
+      const valid = ["New", "On Progress", "Done"];
+      return valid.includes(status) ? status : "On Progress";
+    };
+    const statusToInsert = mapStatus(doc.status);
+    const ALLOWED_TYPES = ["HSE Plan", "PJA", "WIP", "FE"];
+    const typeToInsert = ALLOWED_TYPES.includes(doc.type) ? doc.type : "HSE Plan";
+
+    const payload = {
+      nama: doc.nama,
+      added: doc.added,
+      added_date: doc.addedDate,
+      status: statusToInsert,
+      type: typeToInsert,
+      file_name: doc.fileName || null,
+      file_path: doc.filePath || null,
+      nilai: doc.nilai || null,
+    };
+
+    const { data, error } = await supabase.from("documents").insert([payload]).select();
+
+    if (error) {
+      const errMsg = (error && (error as any).message) || JSON.stringify(error);
+      console.error("Failed insert payload:", JSON.stringify(payload));
+      return { success: false, error: errMsg };
+    }
+
+    return { success: true, data };
+  } catch (err) {
+    const errMsg = err && (err as any).message ? (err as any).message : String(err);
+    return { success: false, error: errMsg };
   }
 }

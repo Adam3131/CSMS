@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Sidebar from "../../../components/Sidebar";
 import { DocumentItem, getDocuments } from "../../../utils/documentStore";
+import { supabase, isSupabaseConfigured } from "../../../utils/supabaseClient";
 import {
   getUsers,
   deleteUser,
@@ -27,8 +28,37 @@ export default function UserManagementPage() {
   useEffect(() => {
     setIsMounted(true);
     getDocuments().then(setDocuments);
-    setUsers(getUsers());
     setCurrentUser(getCurrentUser());
+
+    const loadUsers = async () => {
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, role, updated_at")
+          .order("updated_at", { ascending: false });
+
+        if (!error && data) {
+          const mappedUsers = data.map((profile) => ({
+            id: profile.id,
+            email: profile.full_name
+              ? `${profile.full_name.replace(/\s+/g, ".").toLowerCase()}@supabase.local`
+              : `${profile.id}@supabase.local`,
+            fullName: profile.full_name || "Unnamed Profile",
+            role: (profile.role as UserRole) || "User",
+            createdAt: profile.updated_at || new Date().toISOString(),
+          }));
+
+          setUsers(mappedUsers);
+          return;
+        }
+
+        console.error("Failed to load profiles from Supabase", error);
+      }
+
+      setUsers(getUsers());
+    };
+
+    loadUsers();
 
     // Listen to when new users are created or deleted
     const handleUsersChanged = () => {
@@ -50,6 +80,11 @@ export default function UserManagementPage() {
   }, []);
 
   const handleDeleteUser = (id: string, name: string) => {
+    if (!id.startsWith("user-")) {
+      alert(`User "${name}" is managed by the Supabase profiles table and cannot be deleted from this view.`);
+      return;
+    }
+
     if (confirm(`Are you sure you want to delete user "${name}"?`)) {
       const success = deleteUser(id);
       if (!success) {
@@ -263,11 +298,7 @@ export default function UserManagementPage() {
 
                         {/* Actions */}
                         <td className="px-6 py-4 text-center">
-                          {u.email === "putri.fatima@pertamina.com" ? (
-                            <span className="text-[10px] font-bold text-slate-300 italic select-none">
-                              System Default
-                            </span>
-                          ) : (
+                          {u.id.startsWith("user-") && u.email !== "putri.fatima@pertamina.com" ? (
                             <button
                               onClick={() => handleDeleteUser(u.id, u.fullName)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50/30 text-red-500 transition-all hover:bg-red-50 hover:border-red-200 active:scale-95 cursor-pointer"
@@ -277,6 +308,14 @@ export default function UserManagementPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
+                          ) : u.email === "putri.fatima@pertamina.com" ? (
+                            <span className="text-[10px] font-bold text-slate-300 italic select-none">
+                              System Default
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-400 italic select-none">
+                              Supabase Profile
+                            </span>
                           )}
                         </td>
                       </tr>

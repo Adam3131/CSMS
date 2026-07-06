@@ -39,8 +39,10 @@ create table if not exists public.documents (
     nama text not null,
     added varchar(50) not null, -- formatted date string like "23-Nov-2025"
     added_date timestamp with time zone default timezone('utc'::text, now()) not null,
-    status text not null check (status in ('New', 'On Progress', 'Done')),
+    status text not null check (status in ('New', 'On Progress', 'Done', 'On Review', 'Approved', 'Need Revision', 'Draft')),
     type text not null check (type in ('HSE Plan', 'PJA', 'WIP', 'FE')),
+    file_name text null,
+    file_path text null,
     nilai varchar(50) null -- optional rating/score
 );
 

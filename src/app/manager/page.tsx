@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { uploadDocumentFile, addDocument, insertDocumentRecord, openDocument, getDocuments } from "../../utils/documentStore";
 
 export default function ManagerDashboard() {
   const [selectedProcurement, setSelectedProcurement] = useState(
@@ -19,8 +20,16 @@ export default function ManagerDashboard() {
 
   // Form states for the upload document modal
   const [uploadTitle, setUploadTitle] = useState(selectedProcurement);
-  const [uploadType, setUploadType] = useState("HSE Plan");
+  const [uploadType, setUploadType] = useState<"HSE Plan" | "PJA" | "WIP" | "FE">("HSE Plan");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    title: string;
+    message: string;
+    visible: boolean;
+  } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Simulated procurements for sidebar and tables
@@ -109,7 +118,15 @@ export default function ManagerDashboard() {
   ];
 
   // In-memory state for uploaded documents
-  const [uploadedDocs, setUploadedDocs] = useState([
+  const [uploadedDocs, setUploadedDocs] = useState<{
+    id: number;
+    type: string;
+    fileName: string;
+    date: string;
+    status: string;
+    statusColor: string;
+    filePath?: string;
+  }[]>([
     {
       id: 1,
       type: "HSE Plan",
@@ -161,6 +178,128 @@ export default function ManagerDashboard() {
   ]);
 
   const recentUploads = uploadedDocs.slice(0, 2);
+
+  const loadDBDocuments = async () => {
+    try {
+      const docs = await getDocuments();
+      const dbUploaded = docs
+        .filter((doc) => doc.fileName || doc.filePath)
+        .map((doc) => {
+          const getStatusColor = (status: string) => {
+            switch (status) {
+              case "On Review":
+              case "On Review by PIC":
+                return "bg-amber-50 border-amber-100 text-amber-700";
+              case "Draft":
+                return "bg-slate-50 border-slate-200 text-slate-500";
+              case "Approved":
+              case "Done":
+                return "bg-emerald-50 border-emerald-100 text-emerald-700";
+              case "Need Revision":
+                return "bg-rose-50 border-rose-100 text-rose-600";
+              case "New":
+                return "bg-red-50 border-red-100 text-red-600";
+              case "On Progress":
+                return "bg-blue-50 border-blue-100 text-blue-600";
+              default:
+                return "bg-slate-50 border-slate-200 text-slate-500";
+            }
+          };
+
+          const formattedDate = (() => {
+            if (!doc.addedDate) return doc.added;
+            try {
+              const dateObj = new Date(doc.addedDate);
+              const timeStr = dateObj.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+              return `${doc.added} ${timeStr}`;
+            } catch (e) {
+              return doc.added;
+            }
+          })();
+
+          return {
+            id: doc.no,
+            type: doc.type,
+            fileName: doc.fileName || `${doc.type}_${doc.no}.pdf`,
+            date: formattedDate,
+            status: doc.status,
+            statusColor: getStatusColor(doc.status),
+            filePath: doc.filePath,
+          };
+        });
+
+      setUploadedDocs((prev) => {
+        const defaultItems: {
+          id: number;
+          type: string;
+          fileName: string;
+          date: string;
+          status: string;
+          statusColor: string;
+          filePath?: string;
+        }[] = [
+          {
+            id: 1,
+            type: "HSE Plan",
+            fileName: "HSE_Plan_TimeCharter1.pdf",
+            date: "20 Feb 2026 10:30",
+            status: "On Review",
+            statusColor: "bg-amber-50 border-amber-100 text-amber-700",
+          },
+          {
+            id: 2,
+            type: "PJA",
+            fileName: "PJA_TimeCharter1.pdf",
+            date: "20 Feb 2026 10:28",
+            status: "On Review",
+            statusColor: "bg-amber-50 border-amber-100 text-amber-700",
+          },
+          {
+            id: 3,
+            type: "WIP",
+            fileName: "WIP_Report_Q1_Pertamina.pdf",
+            date: "18 Feb 2026 14:15",
+            status: "Approved",
+            statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
+          },
+          {
+            id: 4,
+            type: "FE",
+            fileName: "FE_Evaluation_Final_SC_Commander.pdf",
+            date: "15 Feb 2026 16:45",
+            status: "Approved",
+            statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
+          },
+          {
+            id: 5,
+            type: "HSE Plan",
+            fileName: "HSE_Plan_GasLaura_Revised.pdf",
+            date: "12 Feb 2026 11:20",
+            status: "Need Revision",
+            statusColor: "bg-rose-50 border-rose-100 text-rose-600",
+          },
+          {
+            id: 6,
+            type: "PJA",
+            fileName: "PJA_Checklist_GasArtemis.pdf",
+            date: "10 Feb 2026 09:10",
+            status: "Approved",
+            statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
+          },
+        ];
+        const uniqueDefault = defaultItems.filter(
+          (d) => !dbUploaded.some((dbDoc) => dbDoc.fileName === d.fileName || dbDoc.filePath === d.filePath)
+        );
+        return [...dbUploaded, ...uniqueDefault];
+      });
+    } catch (err) {
+      console.error("Failed to load documents from database:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadDBDocuments();
+  }, []);
 
   // Helper to dynamically get timeline progress and comments based on the selected procurement status
   const getTimelineAndComment = (status: string, lastUpdateDate: string) => {
@@ -242,59 +381,113 @@ export default function ManagerDashboard() {
     }
   };
 
+  const showToast = (type: "success" | "error", title: string, message: string) => {
+    setToast({ type, title, message, visible: true });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   // Handle native file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
       setSelectedFileName(e.target.files[0].name);
     }
   };
 
   // Handle file upload simulation
-  const handleUploadSubmit = (e: React.FormEvent) => {
+  const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedFileName) {
-      alert("Silakan pilih file terlebih dahulu!");
+    if (!selectedFile || !selectedFileName) {
+      showToast("error", "Unggah Gagal", "Silakan pilih file terlebih dahulu.");
       return;
     }
 
-    const formattedDate = new Date().toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-    const formattedTime = new Date().toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    setIsUploading(true);
 
-    const newUploadedDoc = {
-      id: Date.now(),
-      type: uploadType,
-      fileName: selectedFileName,
-      date: `${formattedDate} ${formattedTime}`,
-      status: "On Review",
-      statusColor: "bg-amber-50 border-amber-100 text-amber-700",
-    };
+    try {
+      const formattedDate = new Date().toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+      const formattedTime = new Date().toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 
-    // Prepend new document to the uploads list state
-    setUploadedDocs([newUploadedDoc, ...uploadedDocs]);
-    
-    // Select the procurement that was uploaded to
-    setSelectedProcurement(uploadTitle);
+      const uploadResult = await uploadDocumentFile(selectedFile);
+      if (!uploadResult) {
+        const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "documents";
+        showToast(
+          "error",
+          "Unggah Gagal",
+          `Masalah penyimpanan dokumen. Pastikan bucket Supabase '${bucketName}' ada dan coba lagi.`
+        );
+        setIsUploadDocModalOpen(false);
+        setSelectedFileName(null);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
 
-    // Reset state & close modal
-    setIsUploadDocModalOpen(false);
-    setSelectedFileName(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      const newDoc = {
+        id: Date.now(),
+        type: uploadType,
+        fileName: selectedFileName,
+        filePath: uploadResult.filePath,
+        date: `${formattedDate} ${formattedTime}`,
+        status: "On Review",
+        statusColor: "bg-amber-50 border-amber-100 text-amber-700",
+      };
+
+      const insertRes = await insertDocumentRecord({
+        nama: uploadTitle,
+        added: formattedDate.replace(/ /g, "-"),
+        addedDate: new Date().toISOString(),
+        status: "On Review",
+        type: uploadType,
+        fileName: selectedFileName || undefined,
+        filePath: uploadResult.filePath || undefined,
+      });
+
+      if (!insertRes.success) {
+        // fallback to local storage for UX, but notify user about DB failure
+        await addDocument({
+          nama: uploadTitle,
+          added: formattedDate.replace(/ /g, "-"),
+          addedDate: new Date().toISOString(),
+          status: "On Review",
+          type: uploadType,
+          fileName: selectedFileName,
+          filePath: uploadResult.filePath,
+        });
+        console.error("Failed to insert document into Supabase:", insertRes, JSON.stringify(insertRes.error, null, 2));
+        const errText = typeof insertRes.error === "string" ? insertRes.error : JSON.stringify(insertRes.error);
+        showToast("error", "Unggah Tersimpan (Local)", `Dokumen disimpan lokal. DB error: ${errText}`);
+      }
+
+      await loadDBDocuments();
+      setSelectedProcurement(uploadTitle);
+      setIsUploadDocModalOpen(false);
+      setSelectedFileName(null);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      showToast("success", "Unggah Berhasil", `Dokumen "${selectedFileName}" berhasil diunggah.`);
+    } catch (error) {
+      console.error("Upload error:", error);
+      showToast("error", "Unggah Gagal", "Terjadi kesalahan saat mengunggah dokumen. Silakan coba lagi.");
+    } finally {
+      setIsUploading(false);
     }
-
-    alert(`Dokumen "${selectedFileName}" berhasil diunggah untuk pengadaan:\n"${uploadTitle}"`);
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
+    <>
       {/* 1. LEFT SIDEBAR */}
       <aside className="fixed inset-y-0 left-0 z-20 flex w-72 flex-col border-r border-slate-200/80 bg-[#e9ecfa] p-4 select-none">
         {/* Navigation list */}
@@ -438,6 +631,54 @@ export default function ManagerDashboard() {
 
       {/* 2. MAIN CONTENT AREA */}
       <div className="flex flex-1 flex-col pl-72">
+        {toast && toast.visible && (
+          <div className="fixed right-6 top-6 z-50 w-[320px] rounded-3xl border border-slate-200 bg-white/95 p-4 shadow-[0_20px_70px_-35px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <div className={`mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl ${toast.type === "success" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                {toast.type === "success" ? (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{toast.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{toast.message}</p>
+                  </div>
+                  <button
+                    onClick={() => setToast(null)}
+                    className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <span className="sr-only">Close notification</span>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {isUploading && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4">
+            <div className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white/95 p-6 text-center shadow-2xl">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
+                <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+              </div>
+              <p className="mt-4 text-sm font-bold text-slate-900">Mengunggah dokumen...</p>
+              <p className="mt-2 text-xs text-slate-500">Mohon tunggu, proses upload sedang berlangsung.</p>
+            </div>
+          </div>
+        )}
         {/* Banner with Safety Helmet and User profile overlay */}
         <div className="relative w-full h-44 overflow-hidden shadow-sm">
           <Image
@@ -709,7 +950,25 @@ export default function ManagerDashboard() {
                         <tr key={index} className="hover:bg-slate-50/50 transition-colors">
                           <td className="px-4 py-3.5 font-bold text-slate-800">{row.type}</td>
                           <td className="px-4 py-3.5 text-indigo-600 font-semibold hover:underline cursor-pointer">
-                            {row.fileName}
+                            {row.filePath ? (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const url = await openDocument(row.filePath as string);
+                                  if (url) {
+                                    window.open(url, "_blank");
+                                  } else {
+                                    showToast("error", "Buka Gagal", "File tidak tersedia untuk dibuka.");
+                                  }
+                                }}
+                                className="text-indigo-600 font-semibold hover:underline"
+                              >
+                                {row.fileName}
+                              </button>
+                            ) : (
+                              <span className="opacity-60">{row.fileName}</span>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 text-slate-400 font-semibold">{row.date}</td>
                           <td className="px-4 py-3.5">
@@ -977,7 +1236,25 @@ export default function ManagerDashboard() {
                           </span>
                         </td>
                         <td className="px-4 py-4 text-indigo-655 font-bold hover:underline cursor-pointer">
-                          {row.fileName}
+                          {row.filePath ? (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const url = await openDocument(row.filePath as string);
+                                if (url) {
+                                  window.open(url, "_blank");
+                                } else {
+                                  showToast("error", "Buka Gagal", "File tidak tersedia untuk dibuka.");
+                                }
+                              }}
+                              className="text-indigo-600 font-semibold hover:underline"
+                            >
+                              {row.fileName}
+                            </button>
+                          ) : (
+                            <span className="opacity-60">{row.fileName}</span>
+                          )}
                         </td>
                         <td className="px-4 py-4 text-slate-400 font-semibold">{row.date}</td>
                         <td className="px-4 py-4">
@@ -1055,7 +1332,7 @@ export default function ManagerDashboard() {
                   </label>
                   <select
                     value={uploadType}
-                    onChange={(e) => setUploadType(e.target.value)}
+                    onChange={(e) => setUploadType(e.target.value as "HSE Plan" | "PJA" | "WIP" | "FE")}
                     className="w-full rounded-xl border border-slate-200 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white transition-all cursor-pointer"
                   >
                     <option value="HSE Plan">HSE Plan</option>
@@ -1139,6 +1416,6 @@ export default function ManagerDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

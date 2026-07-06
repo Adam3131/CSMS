@@ -80,7 +80,7 @@ export default function Sidebar({ currentPath, selectedCategory = "All", documen
     return documents.slice(0, 7);
   }, [documents]);
 
-  const handleCreateUserSubmit = (e: React.FormEvent) => {
+  const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError("");
     setModalSuccess("");
@@ -100,12 +100,11 @@ export default function Sidebar({ currentPath, selectedCategory = "All", documen
       return;
     }
 
-    const result = createUser(modalEmail, modalRole, modalFullName, modalPassword);
+    const result = await createUser(modalEmail, modalRole, modalFullName, modalPassword);
     if (!result) {
-      setModalError("A user with this email already exists.");
+      setModalError("Unable to create this user. The email may already exist or Supabase auth is not available.");
     } else {
-      setModalSuccess("User created successfully!");
-      // Reset inputs after delay and close modal
+      setModalSuccess("User created successfully. If email confirmation is enabled, the user must confirm their email before signing in.");
       setTimeout(() => {
         setIsCreateModalOpen(false);
         setModalEmail("");
@@ -113,7 +112,7 @@ export default function Sidebar({ currentPath, selectedCategory = "All", documen
         setModalPassword("");
         setModalRole("User");
         setModalSuccess("");
-      }, 1000);
+      }, 1500);
     }
   };
 
