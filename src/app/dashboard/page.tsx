@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
-import { DocumentItem, getDocuments, addDocument } from "../../utils/documentStore";
+import { DocumentItem, getDocuments, addDocument, uploadDocumentFile, insertDocumentRecord, openDocument } from "../../utils/documentStore";
 import { getCurrentUser, getRoleDetails } from "../../utils/userStore";
 
 function DashboardContent() {
@@ -27,6 +27,117 @@ function DashboardContent() {
     role: "Admin" as any,
     fullName: "PUTRI FATIMA SUNNIA",
   });
+
+  // Form/upload states for the upload document modal
+  const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadType, setUploadType] = useState<"HSE Plan" | "PJA" | "WIP" | "FE">("HSE Plan");
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    title: string;
+    message: string;
+    visible: boolean;
+  } | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showToast = (type: "success" | "error", title: string, message: string) => {
+    setToast({ type, title, message, visible: true });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+      setSelectedFileName(e.target.files[0].name);
+    }
+  };
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedFile || !selectedFileName) {
+      showToast("error", "Unggah Gagal", "Silakan pilih file terlebih dahulu.");
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const formattedDate = new Date().toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+      const formattedTime = new Date().toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const uploadResult = await uploadDocumentFile(selectedFile);
+      if (!uploadResult) {
+        const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "documents";
+        showToast(
+          "error",
+          "Unggah Gagal",
+          `Masalah penyimpanan dokumen. Pastikan bucket Supabase '${bucketName}' ada dan coba lagi.`
+        );
+        setIsUploadDocModalOpen(false);
+        setSelectedFileName(null);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+
+      const insertRes = await insertDocumentRecord({
+        nama: uploadTitle,
+        added: formattedDate.replace(/ /g, "-"),
+        addedDate: new Date().toISOString(),
+        status: "New",
+        type: uploadType,
+        fileName: selectedFileName || undefined,
+        filePath: uploadResult.filePath || undefined,
+      });
+
+      if (!insertRes.success) {
+        // fallback to local storage for UX, but notify user about DB failure
+        await addDocument({
+          nama: uploadTitle,
+          added: formattedDate.replace(/ /g, "-"),
+          addedDate: new Date().toISOString(),
+          status: "New",
+          type: uploadType,
+          fileName: selectedFileName,
+          filePath: uploadResult.filePath,
+        });
+        console.error("Failed to insert document into Supabase:", insertRes, JSON.stringify(insertRes.error, null, 2));
+        const errText = typeof insertRes.error === "string" ? insertRes.error : JSON.stringify(insertRes.error);
+        showToast("error", "Unggah Tersimpan (Local)", `Dokumen disimpan lokal. DB error: ${errText}`);
+      }
+
+      // Refresh documents
+      const docs = await getDocuments();
+      setDocuments(docs);
+
+      setIsUploadDocModalOpen(false);
+      setSelectedFileName(null);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      showToast("success", "Unggah Berhasil", `Dokumen "${selectedFileName}" berhasil diunggah.`);
+    } catch (error) {
+      console.error("Upload error:", error);
+      showToast("error", "Unggah Gagal", "Terjadi kesalahan saat mengunggah dokumen. Silakan coba lagi.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   useEffect(() => {
     setCurrentUser(getCurrentUser());
@@ -365,32 +476,50 @@ function DashboardContent() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
-                  {["All", "HSE Plan", "PJA", "WIP", "FE"].map((cat) => (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {["All", "HSE Plan", "PJA", "WIP", "FE"].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          if (cat === "HSE Plan") {
+                            router.push("/hse-plan");
+                          } else if (cat === "PJA") {
+                            router.push("/pje");
+                          } else if (cat === "WIP") {
+                            router.push("/wip");
+                          } else if (cat === "FE") {
+                            router.push("/fe");
+                          } else {
+                            setSelectedCategory(cat);
+                          }
+                        }}
+                        className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
+                          selectedCategory === cat
+                            ? "bg-blue-600 border-blue-600 text-white shadow-sm"
+                            : "bg-slate-50 border-slate-200/60 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Upload button for Procurement or Admin */}
+                  {(currentUser.role === "Procurement" || currentUser.role === "Admin") && (
                     <button
-                      key={cat}
                       onClick={() => {
-                        if (cat === "HSE Plan") {
-                          router.push("/hse-plan");
-                        } else if (cat === "PJA") {
-                          router.push("/pje");
-                        } else if (cat === "WIP") {
-                          router.push("/wip");
-                        } else if (cat === "FE") {
-                          router.push("/fe");
-                        } else {
-                          setSelectedCategory(cat);
-                        }
+                        setUploadTitle("");
+                        setIsUploadDocModalOpen(true);
                       }}
-                      className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all cursor-pointer ${
-                        selectedCategory === cat
-                          ? "bg-blue-600 border-blue-600 text-white shadow-sm"
-                          : "bg-slate-50 border-slate-200/60 text-slate-600 hover:bg-slate-100"
-                      }`}
+                      className="flex items-center gap-2 rounded-full border border-slate-200/80 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-50 transition-all cursor-pointer shadow-sm hover:shadow active:scale-[0.98] self-start sm:self-auto"
                     >
-                      {cat}
+                      <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      Upload Dokumen
                     </button>
-                  ))}
+                  )}
                 </div>
 
                 <div className="overflow-x-auto rounded-xl border border-slate-100">
@@ -432,7 +561,28 @@ function DashboardContent() {
                           <tr key={doc.no} className="hover:bg-slate-50/70 transition-colors">
                             <td className="px-5 py-4 text-slate-400">{idx + 1}</td>
                             <td className="px-5 py-4 font-semibold text-slate-900 leading-normal max-w-md">
-                              {doc.nama}
+                              {doc.filePath ? (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const url = await openDocument(doc.filePath as string);
+                                    if (url) {
+                                      window.open(url, "_blank");
+                                    } else {
+                                      showToast("error", "Buka Gagal", "File tidak tersedia untuk dibuka.");
+                                    }
+                                  }}
+                                  className="text-left text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5"
+                                >
+                                  <svg className="h-4 w-4 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  {doc.nama}
+                                </button>
+                              ) : (
+                                doc.nama
+                              )}
                             </td>
                             <td className="px-5 py-4 text-slate-500">{doc.added}</td>
                             <td className="px-5 py-4">
@@ -477,6 +627,191 @@ function DashboardContent() {
 
         </main>
       </div>
+
+      {/* TOAST NOTIFICATION */}
+      {toast && toast.visible && (
+        <div className="fixed right-6 top-6 z-50 w-[320px] rounded-3xl border border-slate-200 bg-white/95 p-4 shadow-[0_20px_70px_-35px_rgba(0,0,0,0.35)] backdrop-blur-sm text-slate-900">
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl ${toast.type === "success" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+              {toast.type === "success" ? (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-slate-900">{toast.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">{toast.message}</p>
+                </div>
+                <button
+                  onClick={() => setToast(null)}
+                  className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <span className="sr-only">Close notification</span>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UPLOADING LOADER */}
+      {isUploading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4 text-slate-900">
+          <div className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white/95 p-6 text-center shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
+              <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+            </div>
+            <p className="mt-4 text-sm font-bold text-slate-900">Mengunggah dokumen...</p>
+            <p className="mt-2 text-xs text-slate-500">Mohon tunggu, proses upload sedang berlangsung.</p>
+          </div>
+        </div>
+      )}
+
+      {/* UPLOAD DOCUMENT MODAL */}
+      {isUploadDocModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-fade-in text-slate-900">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col animate-scale-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">Unggah Dokumen Baru</h3>
+                <p className="text-[11px] text-slate-455 mt-0.5 font-medium">Pilih pengadaan dan berkas dokumen yang ingin Anda unggah.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsUploadDocModalOpen(false);
+                  setSelectedFileName(null);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleUploadSubmit}>
+              <div className="p-6 space-y-4 text-left">
+                {/* Judul Pengadaan Field */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-600 select-none">
+                    Judul Pengadaan
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
+                    required
+                    placeholder="Masukkan judul pengadaan..."
+                    className="w-full rounded-xl border border-slate-200 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white transition-all focus:bg-white"
+                  />
+                </div>
+
+                {/* Jenis Dokumen Field */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-600 select-none">
+                    Jenis Dokumen
+                  </label>
+                  <select
+                    value={uploadType}
+                    onChange={(e) => setUploadType(e.target.value as "HSE Plan" | "PJA" | "WIP" | "FE")}
+                    className="w-full rounded-xl border border-slate-200 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white transition-all cursor-pointer"
+                  >
+                    <option value="HSE Plan">HSE Plan</option>
+                    <option value="PJA">Pre Job Assessment (PJA)</option>
+                    <option value="WIP">Work In Progress (WIP)</option>
+                    <option value="FE">Final Evaluation (FE)</option>
+                  </select>
+                </div>
+
+                {/* File Dropzone Area */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-600 select-none">
+                    File Dokumen (PDF)
+                  </label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept=".pdf,.doc,.docx"
+                    className="hidden"
+                    id="doc-file-input"
+                  />
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-250 hover:border-indigo-500 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all select-none group"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600 group-hover:scale-105 transition-transform">
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                    </div>
+                    {selectedFileName ? (
+                      <div className="text-center space-y-1">
+                        <p className="text-xs font-bold text-slate-800 break-all px-4">
+                          {selectedFileName}
+                        </p>
+                        <p className="text-[10px] text-emerald-600 font-semibold flex items-center justify-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          File terpilih
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-slate-700">
+                          Klik untuk menelusuri file
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1 font-semibold">
+                          Mendukung berkas PDF, DOC, atau DOCX maks 10MB
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUploadDocModalOpen(false);
+                    setSelectedFileName(null);
+                  }}
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer shadow-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-indigo-600 text-white px-6 py-2 text-xs font-bold hover:bg-indigo-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-indigo-500/15"
+                >
+                  Unggah Dokumen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
