@@ -67,21 +67,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     };
   }, [retryCount]);
  
-  useEffect(() => {
-    if (loading || dbError) return;
- 
-    const isAuthRoute = pathname === "/login" || pathname === "/register";
-    const isPublicRoute = pathname === "/" || pathname.startsWith("/manager");
-    const isProtectedRoute = !isAuthRoute && !isPublicRoute;
- 
-    if (isSupabaseConfigured) {
-      if (session && isAuthRoute) {
-        router.replace("/dashboard");
-      } else if (!session && isProtectedRoute) {
-        router.replace("/login");
-      }
-    }
-  }, [session, loading, dbError, pathname, router]);
+  // Routing decisions are handled below using the local session marker.
+  // Avoid auto-redirecting based solely on Supabase session to prevent
+  // unexpected navigation when a Supabase token exists in localStorage.
  
   const handleRetry = () => {
     setDbError(null);
@@ -162,28 +150,18 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const isAuthRoute = pathname === "/login" || pathname === "/register";
   const isPublicRoute = pathname === "/" || pathname.startsWith("/manager");
   const isProtectedRoute = !isAuthRoute && !isPublicRoute;
- 
-  if (isSupabaseConfigured) {
-    if (!session && isProtectedRoute) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-500 font-sans">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-            <p className="text-xs font-semibold">Redirecting to login...</p>
-          </div>
+  // Use local storage session marker as the single source of truth for redirect decisions.
+  const hasLocalSession = typeof window !== "undefined" && !!localStorage.getItem("csms_current_user");
+
+  if (isProtectedRoute && !hasLocalSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-500 font-sans">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <p className="text-xs font-semibold">Redirecting to login...</p>
         </div>
-      );
-    }
-    if (session && isAuthRoute) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-500 font-sans">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-            <p className="text-xs font-semibold">Redirecting to dashboard...</p>
-          </div>
-        </div>
-      );
-    }
+      </div>
+    );
   }
  
   return <>{children}</>;
