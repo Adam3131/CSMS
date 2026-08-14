@@ -188,7 +188,7 @@ export default function EditUserModal({ isOpen, user, onClose }: EditUserModalPr
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 py-2.5 text-center text-xs font-bold text-white shadow-md shadow-blue-500/15 transition-all active:scale-[0.98] cursor-pointer"
+              className="flex-1 rounded-xl bg-linear-to-br from-blue-600 to-indigo-650 py-2.5 text-center text-xs font-bold text-white shadow-md shadow-blue-500/15 transition-all active:scale-[0.98] cursor-pointer"
             >
               {isLoading ? "Saving..." : "Save Changes"}
             </button>

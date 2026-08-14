@@ -192,7 +192,7 @@ export default function CreateUserModal({ isOpen, onClose }: CreateUserModalProp
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 py-2.5 text-center text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:from-blue-500 hover:to-indigo-500 transition-all active:scale-[0.98] cursor-pointer"
+              className="flex-1 rounded-xl bg-linear-to-br from-blue-600 to-indigo-600 py-2.5 text-center text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:from-blue-500 hover:to-indigo-500 transition-all active:scale-[0.98] cursor-pointer"
             >
               {isLoading ? "Creating..." : "Create User"}
             </button>

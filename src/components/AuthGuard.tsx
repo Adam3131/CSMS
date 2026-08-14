@@ -131,7 +131,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
             <div className="flex flex-col gap-3 w-full">
               <button
                 onClick={handleEnterSimulation}
-                className="flex h-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 text-sm font-semibold text-white shadow-lg shadow-blue-500/15 transition-all hover:from-blue-500 hover:to-indigo-600 active:scale-[0.98] cursor-pointer"
+                className="flex h-11 items-center justify-center rounded-xl bg-linear-to-br from-blue-600 to-indigo-650 text-sm font-semibold text-white shadow-lg shadow-blue-500/15 transition-all hover:from-blue-500 hover:to-indigo-600 active:scale-[0.98] cursor-pointer"
               >
                 Enter Simulation Mode (Offline)
               </button>

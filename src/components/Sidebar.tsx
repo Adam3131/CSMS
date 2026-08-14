@@ -92,7 +92,7 @@ export default function Sidebar({ currentPath, selectedCategory = "All", documen
       <aside className="fixed inset-y-0 left-0 z-20 flex w-72 flex-col border-r border-slate-200/80 bg-[#e9ecfa] p-4 font-sans select-none">
         {/* App Logo */}
         <div className="flex h-14 items-center gap-2.5 px-4 mb-4">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold text-sm shadow-sm">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-600 to-indigo-600 text-white font-bold text-sm shadow-sm">
             C
           </span>
           <span className="text-base font-bold tracking-tight text-slate-800">

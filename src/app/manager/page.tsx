@@ -4,11 +4,10 @@ import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { uploadDocumentFile, addDocument, insertDocumentRecord, openDocument, getDocuments } from "../../utils/documentStore";
+import { getCurrentUser, logout, getRoleDetails } from "../../utils/userStore";
 
 export default function ManagerDashboard() {
-  const [selectedProcurement, setSelectedProcurement] = useState(
-    "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 19-20 Februari 2024 (LPGC SC Commander LVII)"
-  );
+  const [selectedProcurement, setSelectedProcurement] = useState<string>("");
   
   // Category filter state: null means no filter (show all)
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
@@ -19,7 +18,7 @@ export default function ManagerDashboard() {
   const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
 
   // Form states for the upload document modal
-  const [uploadTitle, setUploadTitle] = useState(selectedProcurement);
+  const [uploadTitle, setUploadTitle] = useState("");
   const [uploadType, setUploadType] = useState<"HSE Plan" | "PJA" | "WIP" | "FE">("HSE Plan");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -31,267 +30,55 @@ export default function ManagerDashboard() {
   } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
-  // Simulated procurements for sidebar and tables
-  const sidebarProcurements = [
-    "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 19-20 Februari 2024 (LPGC SC Commander LVII)",
-    "Pengadaan COA 1 (satu) Unit Small LPG Carrier",
-    "LPGC Jenggala",
-    "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 15-16 Maret 2024",
-    "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 10-11 April 2024",
-    "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 05-06 Mei 2024",
-    "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 22-23 Juni 2024",
-  ];
+  const [currentUser, setCurrentUser] = useState<any>({
+    email: "",
+    role: "User",
+    fullName: "",
+  });
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
 
-  const procurementsTable = [
-    {
-      id: 1,
-      title:
-        "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 19-20 Feb 2024 (LPGC SC Commander LVII)",
-      type: "HSE Plan",
-      status: "On Review by PIC",
-      statusColor: "bg-amber-50 border-amber-100 text-amber-700",
-      progress: 60,
-      progressColor: "bg-amber-500",
-      date: "22 Feb 2026",
-    },
-    {
-      id: 2,
-      title: "Pengadaan COA 1 (satu) Unit Small LPG Carrier",
-      type: "WIP",
-      status: "Draft",
-      statusColor: "bg-slate-50 border-slate-200 text-slate-500",
-      progress: 0,
-      progressColor: "bg-slate-300",
-      date: "10 Feb 2026",
-    },
-    {
-      id: 3,
-      title: "LPGC Jenggala",
-      type: "PJA",
-      status: "Approved",
-      statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
-      progress: 100,
-      progressColor: "bg-emerald-500",
-      date: "05 Feb 2026",
-    },
-    {
-      id: 4,
-      title: "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 15-16 Mar 2024",
-      type: "HSE Plan",
-      status: "Need Revision",
-      statusColor: "bg-rose-50 border-rose-100 text-rose-600",
-      progress: 30,
-      progressColor: "bg-rose-500",
-      date: "01 Feb 2026",
-    },
-    {
-      id: 5,
-      title: "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 10-11 Apr 2024",
-      type: "FE",
-      status: "Draft",
-      statusColor: "bg-slate-50 border-slate-200 text-slate-500",
-      progress: 0,
-      progressColor: "bg-slate-300",
-      date: "28 Jan 2026",
-    },
-    {
-      id: 6,
-      title: "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 05-06 Mei 2024",
-      type: "PJA",
-      status: "Approved",
-      statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
-      progress: 100,
-      progressColor: "bg-emerald-500",
-      date: "15 Jan 2026",
-    },
-    {
-      id: 7,
-      title: "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 22-23 Juni 2024",
-      type: "FE",
-      status: "On Review by PIC",
-      statusColor: "bg-amber-50 border-amber-100 text-amber-700",
-      progress: 45,
-      progressColor: "bg-amber-500",
-      date: "10 Jan 2026",
-    },
-  ];
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    }
+    const handleSessionChange = () => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+      }
+    };
+    window.addEventListener("user-session-changed", handleSessionChange);
+    return () => {
+      window.removeEventListener("user-session-changed", handleSessionChange);
+    };
+  }, []);
 
-  // In-memory state for uploaded documents
-  const [uploadedDocs, setUploadedDocs] = useState<{
-    id: number;
-    type: string;
-    fileName: string;
-    date: string;
-    status: string;
-    statusColor: string;
-    filePath?: string;
-  }[]>([
-    {
-      id: 1,
-      type: "HSE Plan",
-      fileName: "HSE_Plan_TimeCharter1.pdf",
-      date: "20 Feb 2026 10:30",
-      status: "On Review",
-      statusColor: "bg-amber-50 border-amber-100 text-amber-700",
-    },
-    {
-      id: 2,
-      type: "PJA",
-      fileName: "PJA_TimeCharter1.pdf",
-      date: "20 Feb 2026 10:28",
-      status: "On Review",
-      statusColor: "bg-amber-50 border-amber-100 text-amber-700",
-    },
-    {
-      id: 3,
-      type: "WIP",
-      fileName: "WIP_Report_Q1_Pertamina.pdf",
-      date: "18 Feb 2026 14:15",
-      status: "Approved",
-      statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
-    },
-    {
-      id: 4,
-      type: "FE",
-      fileName: "FE_Evaluation_Final_SC_Commander.pdf",
-      date: "15 Feb 2026 16:45",
-      status: "Approved",
-      statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
-    },
-    {
-      id: 5,
-      type: "HSE Plan",
-      fileName: "HSE_Plan_GasLaura_Revised.pdf",
-      date: "12 Feb 2026 11:20",
-      status: "Need Revision",
-      statusColor: "bg-rose-50 border-rose-100 text-rose-600",
-    },
-    {
-      id: 6,
-      type: "PJA",
-      fileName: "PJA_Checklist_GasArtemis.pdf",
-      date: "10 Feb 2026 09:10",
-      status: "Approved",
-      statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
-    },
-  ]);
+  const userInitials = React.useMemo(() => {
+    return currentUser.fullName
+      ? currentUser.fullName
+          .split(" ")
+          .filter(Boolean)
+          .map((n: string) => n[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase()
+      : "US";
+  }, [currentUser]);
 
-  const recentUploads = uploadedDocs.slice(0, 2);
+  const roleDetails = React.useMemo(() => {
+    return getRoleDetails(currentUser.role);
+  }, [currentUser.role]);
+
+  // State for raw documents from database
+  const [dbDocuments, setDbDocuments] = useState<any[]>([]);
 
   const loadDBDocuments = async () => {
     try {
       const docs = await getDocuments();
-      const dbUploaded = docs
-        .filter((doc) => doc.fileName || doc.filePath)
-        .map((doc) => {
-          const getStatusColor = (status: string) => {
-            switch (status) {
-              case "On Review":
-              case "On Review by PIC":
-                return "bg-amber-50 border-amber-100 text-amber-700";
-              case "Draft":
-                return "bg-slate-50 border-slate-200 text-slate-500";
-              case "Approved":
-              case "Done":
-                return "bg-emerald-50 border-emerald-100 text-emerald-700";
-              case "Need Revision":
-                return "bg-rose-50 border-rose-100 text-rose-600";
-              case "New":
-                return "bg-red-50 border-red-100 text-red-600";
-              case "On Progress":
-                return "bg-blue-50 border-blue-100 text-blue-600";
-              default:
-                return "bg-slate-50 border-slate-200 text-slate-500";
-            }
-          };
-
-          const formattedDate = (() => {
-            if (!doc.addedDate) return doc.added;
-            try {
-              const dateObj = new Date(doc.addedDate);
-              const timeStr = dateObj.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-              return `${doc.added} ${timeStr}`;
-            } catch (e) {
-              return doc.added;
-            }
-          })();
-
-          return {
-            id: doc.no,
-            type: doc.type,
-            fileName: doc.fileName || `${doc.type}_${doc.no}.pdf`,
-            date: formattedDate,
-            status: doc.status,
-            statusColor: getStatusColor(doc.status),
-            filePath: doc.filePath,
-          };
-        });
-
-      setUploadedDocs((prev) => {
-        const defaultItems: {
-          id: number;
-          type: string;
-          fileName: string;
-          date: string;
-          status: string;
-          statusColor: string;
-          filePath?: string;
-        }[] = [
-          {
-            id: 1,
-            type: "HSE Plan",
-            fileName: "HSE_Plan_TimeCharter1.pdf",
-            date: "20 Feb 2026 10:30",
-            status: "On Review",
-            statusColor: "bg-amber-50 border-amber-100 text-amber-700",
-          },
-          {
-            id: 2,
-            type: "PJA",
-            fileName: "PJA_TimeCharter1.pdf",
-            date: "20 Feb 2026 10:28",
-            status: "On Review",
-            statusColor: "bg-amber-50 border-amber-100 text-amber-700",
-          },
-          {
-            id: 3,
-            type: "WIP",
-            fileName: "WIP_Report_Q1_Pertamina.pdf",
-            date: "18 Feb 2026 14:15",
-            status: "Approved",
-            statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
-          },
-          {
-            id: 4,
-            type: "FE",
-            fileName: "FE_Evaluation_Final_SC_Commander.pdf",
-            date: "15 Feb 2026 16:45",
-            status: "Approved",
-            statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
-          },
-          {
-            id: 5,
-            type: "HSE Plan",
-            fileName: "HSE_Plan_GasLaura_Revised.pdf",
-            date: "12 Feb 2026 11:20",
-            status: "Need Revision",
-            statusColor: "bg-rose-50 border-rose-100 text-rose-600",
-          },
-          {
-            id: 6,
-            type: "PJA",
-            fileName: "PJA_Checklist_GasArtemis.pdf",
-            date: "10 Feb 2026 09:10",
-            status: "Approved",
-            statusColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
-          },
-        ];
-        const uniqueDefault = defaultItems.filter(
-          (d) => !dbUploaded.some((dbDoc) => dbDoc.fileName === d.fileName || dbDoc.filePath === d.filePath)
-        );
-        return [...dbUploaded, ...uniqueDefault];
-      });
+      setDbDocuments(docs || []);
     } catch (err) {
       console.error("Failed to load documents from database:", err);
     }
@@ -300,6 +87,136 @@ export default function ManagerDashboard() {
   useEffect(() => {
     loadDBDocuments();
   }, []);
+
+  // Derive unique sidebar procurement titles
+  const sidebarProcurements = React.useMemo(() => {
+    return Array.from(new Set(dbDocuments.map((doc) => doc.nama)));
+  }, [dbDocuments]);
+
+  // Synchronize selected procurement when data loads
+  useEffect(() => {
+    if (sidebarProcurements.length > 0 && !selectedProcurement) {
+      setSelectedProcurement(sidebarProcurements[0]);
+    }
+  }, [sidebarProcurements, selectedProcurement]);
+
+  // Derive procurements table data from database
+  const procurementsTable = React.useMemo(() => {
+    return dbDocuments.map((doc) => {
+      const getStatusColor = (status: string) => {
+        switch (status) {
+          case "On Review":
+          case "On Review by PIC":
+            return "bg-amber-50 border-amber-100 text-amber-700";
+          case "Draft":
+            return "bg-slate-50 border-slate-200 text-slate-500";
+          case "Approved":
+          case "Done":
+            return "bg-emerald-50 border-emerald-100 text-emerald-700";
+          case "Need Revision":
+            return "bg-rose-50 border-rose-100 text-rose-600";
+          case "New":
+            return "bg-red-50 border-red-100 text-red-600";
+          case "On Progress":
+            return "bg-blue-50 border-blue-100 text-blue-600";
+          default:
+            return "bg-slate-50 border-slate-205 text-slate-500";
+        }
+      };
+
+      const getProgress = (status: string) => {
+        switch (status) {
+          case "Approved":
+          case "Done":
+            return 100;
+          case "On Review":
+          case "On Review by PIC":
+            return 60;
+          case "On Progress":
+            return 50;
+          case "Need Revision":
+            return 30;
+          case "Draft":
+          case "New":
+          default:
+            return 0;
+        }
+      };
+
+      const getProgressColor = (progress: number) => {
+        if (progress >= 100) return "bg-emerald-500";
+        if (progress >= 50) return "bg-amber-500";
+        if (progress >= 30) return "bg-rose-500";
+        return "bg-slate-300";
+      };
+
+      const progress = getProgress(doc.status);
+
+      return {
+        id: doc.no,
+        title: doc.nama,
+        type: doc.type,
+        status: doc.status,
+        statusColor: getStatusColor(doc.status),
+        progress: progress,
+        progressColor: getProgressColor(progress),
+        date: doc.added,
+      };
+    });
+  }, [dbDocuments]);
+
+  // Derive uploaded documents from database
+  const uploadedDocs = React.useMemo(() => {
+    return dbDocuments
+      .filter((doc) => doc.fileName || doc.filePath)
+      .map((doc) => {
+        const getStatusColor = (status: string) => {
+          switch (status) {
+            case "On Review":
+            case "On Review by PIC":
+              return "bg-amber-50 border-amber-100 text-amber-700";
+            case "Draft":
+              return "bg-slate-50 border-slate-205 text-slate-505";
+            case "Approved":
+            case "Done":
+              return "bg-emerald-50 border-emerald-100 text-emerald-700";
+            case "Need Revision":
+              return "bg-rose-50 border-rose-100 text-rose-600";
+            case "New":
+              return "bg-red-50 border-red-100 text-red-650";
+            case "On Progress":
+              return "bg-blue-50 border-blue-100 text-blue-600";
+            default:
+              return "bg-slate-50 border-slate-205 text-slate-500";
+          }
+        };
+
+        const formattedDate = (() => {
+          if (!doc.addedDate) return doc.added;
+          try {
+            const dateObj = new Date(doc.addedDate);
+            const timeStr = dateObj.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+            return `${doc.added} ${timeStr}`;
+          } catch (e) {
+            return doc.added;
+          }
+        })();
+
+        return {
+          id: doc.no,
+          type: doc.type,
+          fileName: doc.fileName || `${doc.type}_${doc.no}.pdf`,
+          date: formattedDate,
+          status: doc.status,
+          statusColor: getStatusColor(doc.status),
+          filePath: doc.filePath,
+        };
+      });
+  }, [dbDocuments]);
+
+  const recentUploads = React.useMemo(() => {
+    return uploadedDocs.slice(0, 2);
+  }, [uploadedDocs]);
 
   // Helper to dynamically get timeline progress and comments based on the selected procurement status
   const getTimelineAndComment = (status: string, lastUpdateDate: string) => {
@@ -355,7 +272,18 @@ export default function ManagerDashboard() {
   // Find currently selected procurement data
   const currentProcurement =
     procurementsTable.find((item) => item.title === selectedProcurement) ||
-    procurementsTable[0];
+    procurementsTable[0] || {
+      id: 0,
+      title: "",
+      type: "HSE Plan",
+      status: "Draft",
+      statusColor: "bg-slate-50 border-slate-200 text-slate-500",
+      progress: 0,
+      progressColor: "bg-slate-300",
+      date: "-",
+    };
+
+  const selectedDoc = dbDocuments.find((d) => d.nama === selectedProcurement);
 
   const { comment, commentMeta, steps: timelineSteps } = getTimelineAndComment(
     currentProcurement.status,
@@ -367,11 +295,11 @@ export default function ManagerDashboard() {
     ? procurementsTable.filter((item) => item.type === selectedFilter)
     : procurementsTable;
 
-  // Dynamically calculate Ringkasan Progress counts based on active category filter
-  const onReviewCount = filteredProcurements.filter((item) => item.status === "On Review by PIC").length;
-  const approvedCount = filteredProcurements.filter((item) => item.status === "Approved").length;
+  // Dynamically calculate Ringkasan Progress counts based on active category filter (accounting for Supabase & UI statuses)
+  const onReviewCount = filteredProcurements.filter((item) => item.status === "On Review by PIC" || item.status === "On Review").length;
+  const approvedCount = filteredProcurements.filter((item) => item.status === "Approved" || item.status === "Done").length;
   const needRevisionCount = filteredProcurements.filter((item) => item.status === "Need Revision").length;
-  const draftCount = filteredProcurements.filter((item) => item.status === "Draft").length;
+  const draftCount = filteredProcurements.filter((item) => item.status === "Draft" || item.status === "New" || item.status === "On Progress").length;
 
   const toggleFilter = (filterType: string) => {
     if (selectedFilter === filterType) {
@@ -432,16 +360,6 @@ export default function ManagerDashboard() {
         }
         return;
       }
-
-      const newDoc = {
-        id: Date.now(),
-        type: uploadType,
-        fileName: selectedFileName,
-        filePath: uploadResult.filePath,
-        date: `${formattedDate} ${formattedTime}`,
-        status: "On Review",
-        statusColor: "bg-amber-50 border-amber-100 text-amber-700",
-      };
 
       const insertRes = await insertDocumentRecord({
         nama: uploadTitle,
@@ -514,7 +432,7 @@ export default function ManagerDashboard() {
             </button>
             <button
               onClick={() => {
-                setUploadTitle(selectedProcurement);
+                setUploadTitle("");
                 setIsUploadDocModalOpen(true);
               }}
               className="w-full flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-white/60 hover:text-slate-800 transition-all text-left border border-transparent cursor-pointer"
@@ -610,21 +528,34 @@ export default function ManagerDashboard() {
 
         {/* Profile Footer */}
         <div className="border-t border-slate-200/60 pt-4 mt-auto">
-          <div className="flex items-center gap-3 px-1">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 border border-violet-200 font-extrabold text-xs shadow-sm">
-              PS
+          <div className="flex items-center justify-between gap-3 px-1">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-750 border border-violet-200 font-extrabold text-xs shadow-sm">
+                {userInitials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-slate-800" title={currentUser.fullName}>
+                  {currentUser.fullName || "User"}
+                </p>
+                <p className="truncate text-[10px] text-slate-455 font-semibold mt-0.5" title={currentUser.email}>
+                  {currentUser.email}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-bold text-slate-800">
-                PUTRI FATIMA SUNNIA
-              </p>
-              <p className="truncate text-[10px] text-slate-450 font-semibold mt-0.5">
-                putri.fatima@pertamina.com
-              </p>
-            </div>
+            {/* Sign Out Button */}
+            <button
+              onClick={() => logout()}
+              type="button"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-red-650 hover:bg-red-50 transition-all cursor-pointer shrink-0"
+              title="Sign Out"
+            >
+              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
           </div>
-          <div className="mt-2 text-[9px] font-bold text-slate-400 px-1">
-            Environmental & HSSE Governance
+          <div className="mt-2 text-[9px] font-bold text-slate-400 px-1 truncate" title={`${roleDetails.position} (${roleDetails.department})`}>
+            {roleDetails.position}
           </div>
         </div>
       </aside>
@@ -688,22 +619,39 @@ export default function ManagerDashboard() {
             priority
             className="object-cover"
           />
-          {/* USER 1 Dropdown inside banner */}
+          {/* User Dropdown inside banner */}
           <div className="absolute top-4 right-6">
-            <div className="flex items-center gap-2 bg-white rounded-xl py-1.5 px-3 border border-slate-200/80 shadow-sm hover:bg-slate-50 transition-all cursor-pointer">
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-100 text-violet-750 text-xs font-bold">
-                <svg className="h-4.5 w-4.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                    clipRule="evenodd"
-                  />
+            <div className="relative">
+              <div 
+                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                className="flex items-center gap-2 bg-white rounded-xl py-1.5 px-3 border border-slate-200/80 shadow-sm hover:bg-slate-50 transition-all cursor-pointer select-none"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-100 text-violet-750 text-xs font-bold">
+                  {userInitials}
+                </div>
+                <span className="text-xs font-bold text-slate-700">{currentUser.fullName || "User"}</span>
+                <svg className="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
-              <span className="text-xs font-bold text-slate-700 select-none">USER 1</span>
-              <svg className="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              {isUserDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-lg z-30">
+                  <div className="px-4 py-2 border-b border-slate-100">
+                    <p className="text-xs font-bold text-slate-800 truncate">{currentUser.fullName || "User"}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
+                  </div>
+                  <button
+                    onClick={() => logout()}
+                    type="button"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold text-red-650 hover:bg-red-50 transition-all cursor-pointer"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign Out
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -750,10 +698,65 @@ export default function ManagerDashboard() {
             <div className="lg:col-span-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm flex flex-col justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 mb-4 select-none">Work In Progress</h3>
-                <div className="rounded-xl border border-violet-105 bg-violet-50/20 p-4 border-dashed">
+                <div className="rounded-xl border border-violet-105 bg-violet-50/20 p-4 border-dashed mb-4">
                   <p className="text-[13px] font-bold text-slate-900 leading-relaxed">
-                    {selectedProcurement}
+                    {selectedProcurement || "Belum ada pengadaan terpilih"}
                   </p>
+                </div>
+
+                {/* PDF Document Preview Section */}
+                <div className="mt-4">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Document Attachment
+                  </span>
+                  {selectedDoc && (selectedDoc.fileName || selectedDoc.filePath) ? (
+                    <div 
+                      onClick={async () => {
+                        const filePath = selectedDoc.filePath;
+                        if (filePath) {
+                          const url = await openDocument(filePath);
+                          if (url) {
+                            setPdfPreviewUrl(url);
+                          } else {
+                            showToast("error", "Buka Gagal", "File tidak tersedia untuk dibuka.");
+                          }
+                        } else {
+                          showToast("error", "Buka Gagal", "File tidak tersedia untuk dibuka.");
+                        }
+                      }}
+                      className="group flex items-center justify-between p-3.5 rounded-xl border border-rose-100 bg-rose-50/20 hover:bg-rose-50/50 hover:border-rose-300 transition-all cursor-pointer select-none"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700 group-hover:scale-105 transition-all">
+                          <svg className="h-5.5 w-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate max-w-[250px] sm:max-w-md">
+                            {selectedDoc.fileName || "document.pdf"}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                            Kategori: {selectedDoc.type} • Klik untuk melihat dokumen
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-rose-600">
+                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">Open Preview</span>
+                        <svg className="h-4 w-4 shrink-0 transform group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-slate-200 bg-slate-50/50 border-dashed text-center">
+                      <svg className="h-7 w-7 text-slate-350 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m-9 1V4a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                      </svg>
+                      <p className="text-xs font-bold text-slate-500">No document attached</p>
+                      <p className="text-[9px] text-slate-400 font-medium mt-0.5">Unggah dokumen compliance melalui tombol upload.</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1077,7 +1080,7 @@ export default function ManagerDashboard() {
                 
                 <button
                   onClick={() => {
-                    setUploadTitle(selectedProcurement);
+                    setUploadTitle("");
                     setIsUploadDocModalOpen(true);
                   }}
                   className="w-full flex items-center justify-between rounded-xl border border-slate-150 bg-slate-50/30 p-3.5 hover:bg-slate-50 hover:border-slate-300 transition-all text-left group cursor-pointer"
@@ -1413,6 +1416,53 @@ export default function ManagerDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. MODAL FOR PDF INLINE PREVIEW */}
+      {pdfPreviewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-fade-in text-slate-900">
+          <div className="relative w-full max-w-5xl h-[85vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-scale-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-slate-800 truncate">
+                  Preview Dokumen - {selectedDoc?.fileName || "Dokumen"}
+                </h3>
+                <p className="text-[11px] text-slate-450 mt-0.5 font-medium">
+                  Pengadaan: {selectedProcurement}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => window.open(pdfPreviewUrl, "_blank")}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Buka Tab Baru
+                </button>
+                <button
+                  onClick={() => setPdfPreviewUrl(null)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body (PDF Viewer) */}
+            <div className="flex-1 bg-slate-100 p-2 relative">
+              <iframe
+                src={pdfPreviewUrl}
+                className="w-full h-full rounded-lg border border-slate-200 bg-white"
+                title="PDF Document Preview"
+              />
+            </div>
           </div>
         </div>
       )}
