@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Sidebar from "../../../components/Sidebar";
+import EditUserModal from "../../../components/EditUserModal";
 import { DocumentItem, getDocuments } from "../../../utils/documentStore";
 import { supabase, isSupabaseConfigured } from "../../../utils/supabaseClient";
 import {
   getUsers,
   deleteUser,
+  updateUser,
   getCurrentUser,
   getRoleDetails,
   UserItem,
@@ -19,55 +21,44 @@ export default function UserManagementPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [currentUser, setCurrentUser] = useState({
-    email: "putri.fatima@pertamina.com",
-    role: "Admin" as UserRole,
-    fullName: "PUTRI FATIMA SUNNIA",
+    email: "",
+    role: "User" as UserRole,
+    fullName: "",
   });
+
+  // Edit user state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
 
   // Load data on mount
   useEffect(() => {
     setIsMounted(true);
     getDocuments().then(setDocuments);
-    setCurrentUser(getCurrentUser());
+    
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    }
 
     const loadUsers = async () => {
-      if (isSupabaseConfigured) {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, full_name, role, updated_at")
-          .order("updated_at", { ascending: false });
-
-        if (!error && data) {
-          const mappedUsers = data.map((profile) => ({
-            id: profile.id,
-            email: profile.full_name
-              ? `${profile.full_name.replace(/\s+/g, ".").toLowerCase()}@supabase.local`
-              : `${profile.id}@supabase.local`,
-            fullName: profile.full_name || "Unnamed Profile",
-            role: (profile.role as UserRole) || "User",
-            createdAt: profile.updated_at || new Date().toISOString(),
-          }));
-
-          setUsers(mappedUsers);
-          return;
-        }
-
-        console.error("Failed to load profiles from Supabase", error);
-      }
-
-      setUsers(getUsers());
+      const dbUsers = await getUsers();
+      setUsers(dbUsers);
     };
 
     loadUsers();
 
     // Listen to when new users are created or deleted
-    const handleUsersChanged = () => {
-      setUsers(getUsers());
+    const handleUsersChanged = async () => {
+      const dbUsers = await getUsers();
+      setUsers(dbUsers);
     };
 
     // Listen to session changes
     const handleSessionChange = () => {
-      setCurrentUser(getCurrentUser());
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+      }
     };
 
     window.addEventListener("user-created", handleUsersChanged);
@@ -79,18 +70,18 @@ export default function UserManagementPage() {
     };
   }, []);
 
-  const handleDeleteUser = (id: string, name: string) => {
-    if (!id.startsWith("user-")) {
-      alert(`User "${name}" is managed by the Supabase profiles table and cannot be deleted from this view.`);
-      return;
-    }
-
+  const handleDeleteUser = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete user "${name}"?`)) {
-      const success = deleteUser(id);
+      const success = await deleteUser(id);
       if (!success) {
-        alert("Failed to delete user. The default administrator cannot be deleted.");
+        alert("Failed to delete user from database.");
       }
     }
+  };
+
+  const handleOpenEditModal = (user: UserItem) => {
+    setSelectedUser(user);
+    setIsEditModalOpen(true);
   };
 
   const handleOpenCreateModal = () => {
@@ -298,25 +289,32 @@ export default function UserManagementPage() {
 
                         {/* Actions */}
                         <td className="px-6 py-4 text-center">
-                          {u.id.startsWith("user-") && u.email !== "putri.fatima@pertamina.com" ? (
+                          <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleDeleteUser(u.id, u.fullName)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50/30 text-red-500 transition-all hover:bg-red-50 hover:border-red-200 active:scale-95 cursor-pointer"
-                              title="Delete user"
+                              onClick={() => handleOpenEditModal(u)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-100 bg-blue-50/30 text-blue-600 transition-all hover:bg-blue-50 hover:border-blue-200 active:scale-95 cursor-pointer"
+                              title="Edit user"
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
                             </button>
-                          ) : u.email === "putri.fatima@pertamina.com" ? (
-                            <span className="text-[10px] font-bold text-slate-300 italic select-none">
-                              System Default
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-slate-400 italic select-none">
-                              Supabase Profile
-                            </span>
-                          )}
+                            {u.email !== currentUser.email ? (
+                              <button
+                                onClick={() => handleDeleteUser(u.id, u.fullName)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50/30 text-red-500 transition-all hover:bg-red-50 hover:border-red-200 active:scale-95 cursor-pointer"
+                                title="Delete user"
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            ) : (
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg select-none" title="You cannot delete yourself">
+                                Active User
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -327,6 +325,16 @@ export default function UserManagementPage() {
           </div>
         </main>
       </div>
+
+      {/* EDIT USER MODAL */}
+      <EditUserModal
+        isOpen={isEditModalOpen}
+        user={selectedUser}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedUser(null);
+        }}
+      />
     </div>
   );
 }

@@ -23,9 +23,9 @@ function DashboardContent() {
   const [sortAsc, setSortAsc] = useState(true);
 
   const [currentUser, setCurrentUser] = useState({
-    email: "putri.fatima@pertamina.com",
-    role: "Admin" as any,
-    fullName: "PUTRI FATIMA SUNNIA",
+    email: "",
+    role: "User" as any,
+    fullName: "",
   });
 
   // Form/upload states for the upload document modal
@@ -140,9 +140,15 @@ function DashboardContent() {
   };
 
   useEffect(() => {
-    setCurrentUser(getCurrentUser());
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    }
     const handleSessionChange = () => {
-      setCurrentUser(getCurrentUser());
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+      }
     };
     window.addEventListener("user-session-changed", handleSessionChange);
     return () => {

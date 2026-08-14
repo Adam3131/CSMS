@@ -4,7 +4,7 @@ import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "../../utils/supabaseClient";
-import { getUsers, setCurrentUser } from "../../utils/userStore";
+import { setCurrentUser } from "../../utils/userStore";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,44 +50,9 @@ export default function LoginPage() {
         const enteredEmail = emailRef.current.value.trim().toLowerCase();
         const enteredPassword = passwordRef.current.value;
 
-        // Check local store first (for created users & simulated credentials)
-        const localUsers = getUsers();
-        const matchedLocal = localUsers.find((u) => u.email.toLowerCase() === enteredEmail);
-
-        if (matchedLocal) {
-          if (matchedLocal.password === enteredPassword) {
-            const normalizedRole = (matchedLocal.role as string).toLowerCase();
-            const targetPath = normalizedRole === "manajer" || normalizedRole === "manager" ? "/manager" : "/dashboard";
-
-            setTimeout(() => {
-              setIsLoading(false);
-              setCurrentUser({
-                email: matchedLocal.email,
-                role: matchedLocal.role,
-                fullName: matchedLocal.fullName,
-              });
-              router.push(targetPath);
-            }, 800);
-            return;
-          } else {
-            setIsLoading(false);
-            alert("Login Failed: Invalid password for this account.");
-            return;
-          }
-        }
-
         if (!isSupabaseConfigured) {
-          // Simulation mode fallback
-          setTimeout(() => {
-            setIsLoading(false);
-            setCurrentUser({
-              email: enteredEmail,
-              role: "Admin",
-              fullName: "PUTRI FATIMA SUNNIA",
-            });
-            alert("Signed in successfully! (Simulation Mode)");
-            router.push("/dashboard");
-          }, 1500);
+          setIsLoading(false);
+          alert("Login Failed: Database connection is not configured in the environment.");
           return;
         }
 
@@ -99,7 +64,10 @@ export default function LoginPage() {
 
           if (error) {
             alert("Login Failed: " + error.message);
-          } else if (data?.user) {
+            return;
+          }
+
+          if (data?.user) {
             // Fetch profile for real supabase user
             const { data: profile } = await supabase
               .from("profiles")
@@ -108,7 +76,10 @@ export default function LoginPage() {
               .single();
 
             const resolvedRole = (profile?.role as any) || "User";
-            const targetPath = resolvedRole === "Manajer" || resolvedRole === "Manager" ? "/manager" : "/dashboard";
+            const targetPath =
+              resolvedRole === "Manajer" || resolvedRole === "Manager"
+                ? "/manager"
+                : "/dashboard";
 
             setCurrentUser({
               email: data.user.email || enteredEmail,

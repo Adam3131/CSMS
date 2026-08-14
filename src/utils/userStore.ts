@@ -19,64 +19,34 @@ export interface UserSession {
   fullName: string;
 }
 
-const USERS_STORAGE_KEY = "csms_users";
 const CURRENT_USER_KEY = "csms_current_user";
 
-export const DEFAULT_USERS: UserItem[] = [
-  {
-    id: "user-1",
-    email: "putri.fatima@pertamina.com",
-    fullName: "PUTRI FATIMA SUNNIA",
-    role: "Admin",
-    password: "password",
-    createdAt: new Date("2026-01-15").toISOString(),
-  },
-  {
-    id: "user-2",
-    email: "procurement@pertamina.com",
-    fullName: "PROCUREMENT OFFICER",
-    role: "Procurement",
-    password: "password",
-    createdAt: new Date("2026-02-20").toISOString(),
-  },
-  {
-    id: "user-3",
-    email: "manager@pertamina.com",
-    fullName: "HSSE MANAGER",
-    role: "Manajer",
-    password: "password",
-    createdAt: new Date("2026-03-10").toISOString(),
-  },
-  {
-    id: "user-4",
-    email: "user@pertamina.com",
-    fullName: "OPERATIONS USER",
-    role: "User",
-    password: "password",
-    createdAt: new Date("2026-04-05").toISOString(),
-  },
-];
+export async function getUsers(): Promise<UserItem[]> {
+  if (!isSupabaseConfigured) return [];
 
-export function getUsers(): UserItem[] {
-  if (typeof window === "undefined") {
-    return DEFAULT_USERS;
-  }
-  const stored = localStorage.getItem(USERS_STORAGE_KEY);
-  if (!stored) {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(DEFAULT_USERS));
-    return DEFAULT_USERS;
-  }
   try {
-    return JSON.parse(stored);
-  } catch (e) {
-    console.error("Error parsing users from localStorage", e);
-    return DEFAULT_USERS;
-  }
-}
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role, updated_at")
+      .order("updated_at", { ascending: false });
 
-export function saveUsers(users: UserItem[]): void {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    if (error) {
+      console.error("Error fetching profiles:", error.message);
+      return [];
+    }
+
+    return (data || []).map((profile) => ({
+      id: profile.id,
+      email: profile.full_name
+        ? `${profile.full_name.replace(/\s+/g, ".").toLowerCase()}@supabase.local`
+        : `${profile.id}@supabase.local`,
+      fullName: profile.full_name || "Unnamed Profile",
+      role: (profile.role as UserRole) || "User",
+      createdAt: profile.updated_at || new Date().toISOString(),
+    }));
+  } catch (e) {
+    console.error("Unexpected error fetching users:", e);
+    return [];
   }
 }
 
@@ -86,92 +56,113 @@ export async function createUser(
   fullName: string,
   password?: string
 ): Promise<UserItem | null> {
-  const users = getUsers();
+  if (!isSupabaseConfigured) return null;
 
-  if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-    return null;
-  }
-
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: email.toLowerCase(),
-        password: password || "password",
-        options: {
-          data: {
-            full_name: fullName,
-            role,
-          },
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.toLowerCase(),
+      password: password || "password",
+      options: {
+        data: {
+          full_name: fullName,
+          role,
         },
-      });
+      },
+    });
 
-      if (error) {
-        console.error("Supabase sign-up failed", error);
-        return null;
-      }
-
-      const newUser: UserItem = {
-        id: data.user?.id || `user-${Math.random().toString(36).slice(2, 11)}`,
-        email: email.toLowerCase(),
-        role,
-        fullName,
-        password: password || "password",
-        createdAt: new Date().toISOString(),
-      };
-
-      const updatedUsers = [...users, newUser];
-      saveUsers(updatedUsers);
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("user-created"));
-      }
-
-      return newUser;
-    } catch (err) {
-      console.error("Unexpected Supabase sign-up error", err);
+    if (error) {
+      console.error("Supabase sign-up failed", error);
       return null;
     }
+
+    const newUser: UserItem = {
+      id: data.user?.id || `user-${Math.random().toString(36).slice(2, 11)}`,
+      email: email.toLowerCase(),
+      role,
+      fullName,
+      password: password || "password",
+      createdAt: new Date().toISOString(),
+    };
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("user-created"));
+    }
+
+    return newUser;
+  } catch (err) {
+    console.error("Unexpected Supabase sign-up error", err);
+    return null;
   }
-
-  const newUser: UserItem = {
-    id: "user-" + Math.random().toString(36).substr(2, 9),
-    email: email.toLowerCase(),
-    role,
-    fullName,
-    password: password || "password",
-    createdAt: new Date().toISOString(),
-  };
-
-  const updatedUsers = [...users, newUser];
-  saveUsers(updatedUsers);
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("user-created"));
-  }
-
-  return newUser;
 }
 
-export function deleteUser(id: string): boolean {
-  const users = getUsers();
-  const index = users.findIndex((u) => u.id === id);
-  if (index === -1) return false;
+export async function deleteUser(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
 
-  // Don't allow deleting the default active admin putri.fatima@pertamina.com to prevent lockouts
-  if (users[index].email === "putri.fatima@pertamina.com") {
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Failed to delete profile from Supabase:", error.message);
+      return false;
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("user-created"));
+    }
+    return true;
+  } catch (e) {
+    console.error("Unexpected error deleting user:", e);
     return false;
   }
-
-  const updatedUsers = users.filter((u) => u.id !== id);
-  saveUsers(updatedUsers);
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("user-created"));
-  }
-  return true;
 }
 
-export function getCurrentUser(): UserSession {
+export async function updateUser(
+  id: string,
+  email: string,
+  role: UserRole,
+  fullName: string,
+  password?: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        role,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Failed to update profile in Supabase:", error.message);
+      return false;
+    }
+
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser.email.toLowerCase() === email.toLowerCase()) {
+      setCurrentUser({
+        ...currentUser,
+        role,
+        fullName,
+      });
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("user-created"));
+    }
+    return true;
+  } catch (e) {
+    console.error("Unexpected error updating user:", e);
+    return false;
+  }
+}
+
+export function getCurrentUser(): UserSession | null {
   if (typeof window !== "undefined") {
     const session = localStorage.getItem(CURRENT_USER_KEY);
     if (session) {
@@ -182,11 +173,7 @@ export function getCurrentUser(): UserSession {
       }
     }
   }
-  return {
-    email: "putri.fatima@pertamina.com",
-    role: "Admin",
-    fullName: "PUTRI FATIMA SUNNIA",
-  };
+  return null;
 }
 
 export function setCurrentUser(user: UserSession | null): void {
@@ -203,6 +190,11 @@ export function setCurrentUser(user: UserSession | null): void {
 
 export function logout(): void {
   setCurrentUser(null);
+  if (isSupabaseConfigured) {
+    supabase.auth.signOut().catch((err) => {
+      console.error("Supabase signOut error:", err);
+    });
+  }
   if (typeof window !== "undefined") {
     window.location.href = "/login";
   }

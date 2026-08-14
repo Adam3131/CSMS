@@ -66,7 +66,19 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       }
     };
   }, [retryCount]);
- 
+
+  // Redirect to login if accessing a protected route without a session
+  useEffect(() => {
+    const isAuthRoute = pathname === "/login" || pathname === "/register";
+    const isPublicRoute = pathname === "/" || pathname.startsWith("/manager");
+    const isProtectedRoute = !isAuthRoute && !isPublicRoute;
+    const hasLocalSession = typeof window !== "undefined" && !!localStorage.getItem("csms_current_user");
+
+    if (isProtectedRoute && !hasLocalSession && !loading) {
+      router.push("/login");
+    }
+  }, [pathname, loading, router]);
+
   // Routing decisions are handled below using the local session marker.
   // Avoid auto-redirecting based solely on Supabase session to prevent
   // unexpected navigation when a Supabase token exists in localStorage.
