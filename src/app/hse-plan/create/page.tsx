@@ -1,17 +1,21 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../../components/Sidebar";
-import { DocumentItem, getDocuments, addDocument } from "../../../utils/documentStore";
+import { DocumentItem, getDocuments, addDocument, saveDocuments, openDocument } from "../../../utils/documentStore";
 import { supabase, isSupabaseConfigured } from "../../../utils/supabaseClient";
+import { getCurrentUser, getRoleDetails } from "../../../utils/userStore";
 
-export default function CreateHsePlanPage() {
+function CreateHsePlanContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const formRef = useRef<HTMLFormElement>(null);
   
   const [isMounted, setIsMounted] = useState(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   
   // Wizard view state (step 1 to 4)
   const [hsePlanStep, setHsePlanStep] = useState<1 | 2 | 3 | 4>(1);
@@ -56,8 +60,107 @@ export default function CreateHsePlanPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    getDocuments().then(setDocuments);
-  }, []);
+    getDocuments().then(async (docs) => {
+      setDocuments(docs);
+      
+      const docNo = searchParams.get("no");
+      if (docNo) {
+        const targetNo = parseInt(docNo, 10);
+        const doc = docs.find((d) => d.no === targetNo);
+        if (doc) {
+          setSelectedDoc(doc);
+          if (doc.filePath) {
+            openDocument(doc.filePath).then((url) => {
+              if (url) {
+                setPdfPreviewUrl(url);
+              }
+            });
+          }
+          // If status is "New", pre-fill defaults
+          if (doc.status === "New") {
+            setProjectName(doc.nama);
+            setVendorName("");
+            setLokasiPekerjaan("");
+            const today = new Date().toISOString().split("T")[0];
+            setEvaluationDate(today);
+            
+            const user = getCurrentUser();
+            if (user) {
+              setEvaluatorName(user.fullName);
+              const details = getRoleDetails(user.role);
+              setPicJabatan(details.position || "Environmental & HSSE Governance");
+            } else {
+              setEvaluatorName("PUTRI FATIMA SUNNIA");
+              setPicJabatan("Environmental & HSSE Governance");
+            }
+          } else {
+            // Fetch detailed scores from Supabase hse_plan_submissions
+            if (isSupabaseConfigured) {
+              try {
+                const { data, error } = await supabase
+                  .from("hse_plan_submissions")
+                  .select("*")
+                  .eq("document_no", targetNo)
+                  .single();
+                if (data && !error) {
+                  setProjectName(data.project_name || doc.nama);
+                  setVendorName(data.vendor_name || "");
+                  setLokasiPekerjaan(data.lokasi_pekerjaan || "");
+                  setEvaluatorName(data.evaluator_name || "");
+                  setPicJabatan(data.pic_jabatan || "");
+                  if (data.evaluation_date) {
+                    setEvaluationDate(data.evaluation_date);
+                  }
+                  if (data.matrix_scores) {
+                    const ms = data.matrix_scores;
+                    if (ms.matrixScores) setMatrixScores(ms.matrixScores);
+                    if (ms.matrixStep3Scores) setMatrixStep3Scores(ms.matrixStep3Scores);
+                    if (ms.matrixStep8Scores) setMatrixStep8Scores(ms.matrixStep8Scores);
+                  }
+                }
+              } catch (err) {
+                console.error("Failed to load details:", err);
+              }
+            } else {
+              // Local fallback
+              setProjectName(doc.nama);
+              setVendorName("");
+              setLokasiPekerjaan("");
+              const today = new Date().toISOString().split("T")[0];
+              setEvaluationDate(today);
+              
+              const user = getCurrentUser();
+              if (user) {
+                setEvaluatorName(user.fullName);
+                const details = getRoleDetails(user.role);
+                setPicJabatan(details.position || "Environmental & HSSE Governance");
+              } else {
+                setEvaluatorName("PUTRI FATIMA SUNNIA");
+                setPicJabatan("Environmental & HSSE Governance");
+              }
+            }
+          }
+        }
+      } else {
+        // No docNo query parameter - brand new document creation
+        setProjectName("");
+        setVendorName("");
+        setLokasiPekerjaan("");
+        const today = new Date().toISOString().split("T")[0];
+        setEvaluationDate(today);
+        
+        const user = getCurrentUser();
+        if (user) {
+          setEvaluatorName(user.fullName);
+          const details = getRoleDetails(user.role);
+          setPicJabatan(details.position || "Environmental & HSSE Governance");
+        } else {
+          setEvaluatorName("PUTRI FATIMA SUNNIA");
+          setPicJabatan("Environmental & HSSE Governance");
+        }
+      }
+    });
+  }, [searchParams]);
 
 
 
@@ -136,11 +239,15 @@ export default function CreateHsePlanPage() {
       year: "numeric",
     }).replace(/ /g, "-");
 
-    let docNo: number | null = null;
+    const docNoParam = searchParams.get("no");
+    let docNo: number | null = docNoParam ? parseInt(docNoParam, 10) : null;
 
     if (isSupabaseConfigured) {
       // Check if we selected an existing document from our list
-      const existingDoc = documents.find(d => d.nama === projectName && d.type === "HSE Plan");
+      let existingDoc = docNo ? documents.find(d => d.no === docNo) : null;
+      if (!existingDoc) {
+        existingDoc = documents.find(d => d.nama === projectName && d.type === "HSE Plan");
+      }
 
       if (existingDoc) {
         docNo = existingDoc.no;
@@ -221,14 +328,23 @@ export default function CreateHsePlanPage() {
       }
     } else {
       // LocalStorage fallback (simulation mode)
-      await addDocument({
-        nama: projectName,
-        added: dateFormatted,
-        addedDate: new Date().toISOString(),
-        status: "Done",
-        type: "HSE Plan",
-        nilai: percentHsePlanScore,
-      });
+      if (docNo) {
+        const updated = documents.map((d) =>
+          d.no === docNo
+            ? { ...d, nama: projectName, status: "Done" as const, nilai: percentHsePlanScore }
+            : d
+        );
+        saveDocuments(updated);
+      } else {
+        await addDocument({
+          nama: projectName,
+          added: dateFormatted,
+          addedDate: new Date().toISOString(),
+          status: "Done",
+          type: "HSE Plan",
+          nilai: percentHsePlanScore,
+        });
+      }
     }
 
     alert("HSE Plan document created successfully!");
@@ -375,38 +491,69 @@ export default function CreateHsePlanPage() {
                   <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-6">
                     <div className="space-y-4">
                       <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Document Preview (HSE Plan)</span>
-                      <div className="relative border border-slate-300 rounded-lg bg-white p-6 shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between text-slate-850 text-[7px] leading-relaxed select-none">
-                        <div className="flex items-center justify-between border-b border-blue-900 pb-2">
-                          <div className="text-left font-bold text-blue-900 text-[9px]">PERTAMINA</div>
-                          <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-CSMS-01</div>
-                        </div>
-                        <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
-                          <p className="text-[8px]">Surat Keputusan</p>
-                          <p className="text-[6px] text-slate-500 font-semibold">No. Kpts - 24 / C00000/2026-S0</p>
-                          <p className="text-[7px] tracking-tight text-blue-950 mt-1">TENTANG PEMBERLAKUAN PEDOMAN CONTRACTOR SAFETY MANAGEMENT SYSTEM (CSMS)</p>
-                        </div>
-                        <div className="flex-1 space-y-2 py-2 text-slate-600">
-                          <p className="font-semibold text-slate-800">DIREKTUR UTAMA PT PERTAMINA (PERSERO),</p>
-                          <p className="text-[6.5px]">Sistem Manajemen Keselamatan Kontraktor (CSMS) wajib dipenuhi untuk memitigasi seluruh aktivitas operasional di kapal VLGC Laycan.</p>
-                        </div>
-                        <div className="flex justify-end pt-2">
-                          <div className="text-right w-24">
-                            <p>Jakarta, 2026</p>
-                            <p className="font-bold text-slate-800">Direktur Utama</p>
-                            <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300 font-bold">Signature</div>
-                            <p className="font-bold text-slate-800 underline">Nicke Widyawati</p>
+                      <div className="relative border border-slate-300 rounded-lg bg-white shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between select-none">
+                        {pdfPreviewUrl ? (
+                          <iframe
+                            src={pdfPreviewUrl}
+                            className="w-full h-full border-0"
+                            title="Document PDF Preview"
+                          />
+                        ) : (
+                          <div className="p-6 h-full flex flex-col justify-between text-slate-800 text-[7px] leading-relaxed">
+                            <div className="flex items-center justify-between border-b border-blue-900 pb-2">
+                              <div className="text-left font-bold text-blue-900 text-[9px]">PERTAMINA</div>
+                              <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-CSMS-01</div>
+                            </div>
+                            <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
+                              <p className="text-[8px]">Surat Keputusan</p>
+                              <p className="text-[6px] text-slate-500 font-semibold">No. Kpts - 24 / C00000/2026-S0</p>
+                              <p className="text-[7px] tracking-tight text-blue-950 mt-1">TENTANG PEMBERLAKUAN PEDOMAN CONTRACTOR SAFETY MANAGEMENT SYSTEM (CSMS)</p>
+                            </div>
+                            <div className="flex-1 space-y-2 py-2 text-slate-650">
+                              <p className="font-semibold text-slate-800">DIREKTUR UTAMA PT PERTAMINA (PERSERO),</p>
+                              <p className="text-[6.5px]">Sistem Manajemen Keselamatan Kontraktor (CSMS) wajib dipenuhi untuk memitigasi seluruh aktivitas operasional di kapal VLGC Laycan.</p>
+                            </div>
+                            <div className="flex justify-end pt-2">
+                              <div className="text-right w-24">
+                                <p>Jakarta, 2026</p>
+                                <p className="font-bold text-slate-800">Direktur Utama</p>
+                                <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300 font-bold">Signature</div>
+                                <p className="font-bold text-slate-800 underline">Nicke Widyawati</p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
-                      <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between">
+                       <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-700 font-bold text-xs shrink-0">PDF</span>
                           <div className="min-w-0">
-                            <p className="text-xs font-semibold text-slate-900 truncate">HSE Plan - Pedoman CSMS Pertamina.pdf</p>
-                            <p className="text-[10px] text-slate-400">1.8 MB</p>
+                            <p className="text-xs font-semibold text-slate-900 truncate">
+                              {selectedDoc?.fileName || "HSE Plan - Pedoman CSMS Pertamina.pdf"}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              {selectedDoc?.fileName ? "Database File" : "1.8 MB"}
+                            </p>
                           </div>
                         </div>
-                        <button type="button" onClick={() => alert("Simulating PDF full view...")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">View File</button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (selectedDoc?.filePath) {
+                              const url = await openDocument(selectedDoc.filePath);
+                              if (url) {
+                                window.open(url, "_blank");
+                              } else {
+                                alert("Failed to open file: File path not accessible.");
+                              }
+                            } else {
+                              alert("Simulating PDF full view...");
+                            }
+                          }}
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                        >
+                          View File
+                        </button>
                       </div>
                     </div>
                     
@@ -483,6 +630,7 @@ export default function CreateHsePlanPage() {
                                 <option value="0">0.00</option>
                                 <option value="0.25">0.25</option>
                                 <option value="0.5">0.50</option>
+                                <option value="0.75">0.75</option>
                                 <option value="1">1.00</option>
                               </select>
                             </td>
@@ -537,6 +685,7 @@ export default function CreateHsePlanPage() {
                                 <option value="0">0.00</option>
                                 <option value="0.25">0.25</option>
                                 <option value="0.5">0.50</option>
+                                <option value="0.75">0.75</option>
                                 <option value="1">1.00</option>
                               </select>
                             </td>
@@ -644,6 +793,7 @@ export default function CreateHsePlanPage() {
                                   <option value="0">0.00</option>
                                   <option value="0.25">0.25</option>
                                   <option value="0.5">0.50</option>
+                                  <option value="0.75">0.75</option>
                                   <option value="1">1.00</option>
                                 </select>
                               </td>
@@ -678,6 +828,7 @@ export default function CreateHsePlanPage() {
                                 <option value="0">0.00</option>
                                 <option value="0.25">0.25</option>
                                 <option value="0.5">0.50</option>
+                                <option value="0.75">0.75</option>
                                 <option value="1">1.00</option>
                               </select>
                             </td>
@@ -736,6 +887,7 @@ export default function CreateHsePlanPage() {
                                   <option value="0">0.00</option>
                                   <option value="0.25">0.25</option>
                                   <option value="0.5">0.50</option>
+                                  <option value="0.75">0.75</option>
                                   <option value="1">1.00</option>
                                 </select>
                               </td>
@@ -839,6 +991,7 @@ export default function CreateHsePlanPage() {
                                 <option value="0">0.00</option>
                                 <option value="0.25">0.25</option>
                                 <option value="0.5">0.50</option>
+                                <option value="0.75">0.75</option>
                                 <option value="1">1.00</option>
                               </select>
                             </td>
@@ -918,5 +1071,22 @@ export default function CreateHsePlanPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function CreateHsePlanPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-500 font-sans">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+            <p className="text-xs font-semibold">Loading Wizard Page...</p>
+          </div>
+        </div>
+      }
+    >
+      <CreateHsePlanContent />
+    </Suspense>
   );
 }

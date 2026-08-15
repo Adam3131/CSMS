@@ -351,3 +351,35 @@ export async function insertDocumentRecord(doc: Omit<DocumentItem, "no">): Promi
     return { success: false, error: errMsg };
   }
 }
+
+export async function deleteDocument(no: number): Promise<DocumentItem[]> {
+  if (!isSupabaseConfigured) {
+    const current = getLocalDocuments();
+    const updated = current.filter((d) => d.no !== no);
+    saveLocalDocuments(updated);
+    return updated;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("documents")
+      .delete()
+      .eq("no", no);
+
+    if (error) {
+      console.warn("Failed to delete from Supabase (falling back to localStorage):", error.message);
+      const current = getLocalDocuments();
+      const updated = current.filter((d) => d.no !== no);
+      saveLocalDocuments(updated);
+      return updated;
+    }
+
+    return getDocuments();
+  } catch (err) {
+    console.error("Error in deleteDocument:", err);
+    const current = getLocalDocuments();
+    const updated = current.filter((d) => d.no !== no);
+    saveLocalDocuments(updated);
+    return updated;
+  }
+}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { DocumentItem, getDocuments } from "../../utils/documentStore";
+import { DocumentItem, getDocuments, deleteDocument } from "../../utils/documentStore";
 import Sidebar from "../../components/Sidebar";
 
 export default function HsePlanLandingPage() {
@@ -43,12 +43,53 @@ export default function HsePlanLandingPage() {
     });
   }, [filteredDocuments, sortField, sortAsc]);
 
+  // Statistics calculations
+  const stats = useMemo(() => {
+    const total = hseDocuments.length;
+    const newCount = hseDocuments.filter((d) => d.status === "New").length;
+    const waitingCount = hseDocuments.filter((d) =>
+      ["On Progress", "On Review", "Need Revision", "Draft"].includes(d.status)
+    ).length;
+    const doneCount = hseDocuments.filter((d) =>
+      ["Done", "Approved"].includes(d.status)
+    ).length;
+
+    const donePct = total > 0 ? (doneCount / total) * 100 : 0;
+    const progressPct = total > 0 ? (waitingCount / total) * 100 : 0;
+    const newPct = total > 0 ? (newCount / total) * 100 : 0;
+    const completePercentage = Math.round(donePct);
+
+    return {
+      total,
+      newCount,
+      waitingCount,
+      doneCount,
+      donePct,
+      progressPct,
+      newPct,
+      completePercentage,
+    };
+  }, [hseDocuments]);
+
   const handleSort = (field: "nama" | "added") => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
       setSortField(field);
       setSortAsc(true);
+    }
+  };
+
+  const handleDelete = async (no: number, name: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus dokumen "${name}"?`)) {
+      try {
+        const updated = await deleteDocument(no);
+        setDocuments(updated);
+        alert("Dokumen berhasil dihapus!");
+      } catch (err) {
+        console.error("Gagal menghapus dokumen:", err);
+        alert("Gagal menghapus dokumen.");
+      }
     }
   };
 
@@ -144,7 +185,7 @@ export default function HsePlanLandingPage() {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">New HSE Plan</p>
-                <p className="text-xl font-extrabold text-slate-800 mt-1">3/80</p>
+                <p className="text-xl font-extrabold text-slate-800 mt-1">{stats.newCount}/{stats.total}</p>
               </div>
             </div>
 
@@ -157,7 +198,7 @@ export default function HsePlanLandingPage() {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Waiting for Approval</p>
-                <p className="text-xl font-extrabold text-slate-800 mt-1">5/80</p>
+                <p className="text-xl font-extrabold text-slate-800 mt-1">{stats.waitingCount}/{stats.total}</p>
               </div>
             </div>
 
@@ -165,10 +206,10 @@ export default function HsePlanLandingPage() {
             <div className="rounded-xl border border-slate-200/80 bg-blue-50/40 p-5 shadow-sm flex flex-col justify-center">
               <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <span>HSE Plan Complete</span>
-                <span className="text-slate-800 font-extrabold">88%</span>
+                <span className="text-slate-800 font-extrabold">{stats.completePercentage}%</span>
               </div>
               <div className="h-2.5 w-full bg-slate-200/80 rounded-full overflow-hidden mt-3 shadow-inner">
-                <div className="h-full bg-blue-600 rounded-full" style={{ width: "88%" }} />
+                <div className="h-full bg-blue-600 rounded-full" style={{ width: `${stats.completePercentage}%` }} />
               </div>
             </div>
           </div>
@@ -180,27 +221,27 @@ export default function HsePlanLandingPage() {
               <div 
                 className="relative h-28 w-28 rounded-full border border-slate-200 shadow-inner flex items-center justify-center"
                 style={{
-                  background: "conic-gradient(#3b82f6 0% 40.87%, #ef4444 40.87% 67.76%, #f59e0b 67.76% 87.87%, #f1f5f9 87.87% 100%)"
+                  background: `conic-gradient(#3b82f6 0% ${stats.donePct.toFixed(2)}%, #ef4444 ${stats.donePct.toFixed(2)}% ${(stats.donePct + stats.progressPct).toFixed(2)}%, #f59e0b ${(stats.donePct + stats.progressPct).toFixed(2)}% 100%)`
                 }}
               >
                 {/* Inner cutout for donut style */}
                 <div className="h-16 w-16 rounded-full bg-white flex flex-col items-center justify-center shadow-md">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ratio</span>
-                  <span className="text-xs font-black text-slate-800">88%</span>
+                  <span className="text-xs font-black text-slate-800">{stats.completePercentage}%</span>
                 </div>
               </div>
               <div className="space-y-2.5 text-xs font-bold text-slate-600">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded bg-blue-500" />
-                  <span>Done (40.87%)</span>
+                  <span>Done ({stats.donePct.toFixed(2)}%)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded bg-red-500" />
-                  <span>On Progress (26.89%)</span>
+                  <span>On Progress ({stats.progressPct.toFixed(2)}%)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded bg-amber-500" />
-                  <span>New (20.11%)</span>
+                  <span>New ({stats.newPct.toFixed(2)}%)</span>
                 </div>
               </div>
             </div>
@@ -208,9 +249,9 @@ export default function HsePlanLandingPage() {
             {/* Right: Progression Metrics Detail */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm flex flex-col justify-center space-y-4">
               {[
-                { label: "Done", val: "40,87%", color: "bg-blue-600", width: "40.87%" },
-                { label: "On Progress", val: "26,89%", color: "bg-red-500", width: "26.89%" },
-                { label: "New", val: "20,11%", color: "bg-amber-500", width: "20.11%" },
+                { label: "Done", val: `${stats.donePct.toFixed(2)}%`, color: "bg-blue-600", width: `${stats.donePct.toFixed(2)}%` },
+                { label: "On Progress", val: `${stats.progressPct.toFixed(2)}%`, color: "bg-red-500", width: `${stats.progressPct.toFixed(2)}%` },
+                { label: "New", val: `${stats.newPct.toFixed(2)}%`, color: "bg-amber-500", width: `${stats.newPct.toFixed(2)}%` },
               ].map((item) => (
                 <div key={item.label} className="space-y-1 text-xs font-semibold text-slate-700">
                   <div className="flex justify-between items-center">
@@ -230,15 +271,6 @@ export default function HsePlanLandingPage() {
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">
               HSE Plan Documents
             </h2>
-            <Link
-              href="/hse-plan/create"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Create HSE Plan
-            </Link>
           </div>
 
           {/* HSE Document Table */}
@@ -275,7 +307,7 @@ export default function HsePlanLandingPage() {
                     <th scope="col" className="px-5 py-3.5 w-32">Status</th>
                     <th scope="col" className="px-5 py-3.5 w-32">Document</th>
                     <th scope="col" className="px-5 py-3.5 w-52">Review Status</th>
-                    <th scope="col" className="px-5 py-3.5 w-24 text-center">Action</th>
+                    <th scope="col" className="px-5 py-3.5 w-44 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
@@ -292,8 +324,12 @@ export default function HsePlanLandingPage() {
                             className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-extrabold border ${
                               doc.status === "New"
                                 ? "bg-red-50 border-red-100 text-red-600"
-                                : doc.status === "On Progress"
+                                : ["On Progress", "Draft"].includes(doc.status)
                                 ? "bg-amber-50 border-amber-100 text-amber-600"
+                                : doc.status === "On Review"
+                                ? "bg-indigo-50 border-indigo-100 text-indigo-600"
+                                : doc.status === "Need Revision"
+                                ? "bg-rose-50 border-rose-100 text-rose-600"
                                 : "bg-emerald-50 border-emerald-100 text-emerald-600"
                             }`}
                           >
@@ -307,29 +343,100 @@ export default function HsePlanLandingPage() {
                         </td>
                         <td className="px-5 py-4">
                           <div className="space-y-1 text-[10px] text-slate-500 font-semibold leading-none">
-                            <div className="flex items-center gap-1.5">
-                              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                              <span>Pending review by HSSE</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                              <span>Pending review by User</span>
-                            </div>
+                            {doc.status === "New" && (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                                  <span className="text-slate-400">Not started by HSSE</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                                  <span className="text-slate-400">Not started by User</span>
+                                </div>
+                              </>
+                            )}
+                            {(doc.status === "On Progress" || doc.status === "Draft") && (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                  <span className="text-amber-600">Drafting/In Progress</span>
+                                </div>
+                              </>
+                            )}
+                            {(doc.status === "On Review" || doc.status === "Need Revision") && (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`h-1.5 w-1.5 rounded-full ${doc.status === "Need Revision" ? "bg-rose-500" : "bg-blue-500"}`} />
+                                  <span className={doc.status === "Need Revision" ? "text-rose-600" : "text-blue-600"}>
+                                    {doc.status === "Need Revision" ? "Revision needed by HSSE" : "Under review by HSSE"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                  <span className="text-red-500">Pending review by User</span>
+                                </div>
+                              </>
+                            )}
+                            {(doc.status === "Done" || doc.status === "Approved") && (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                  <span className="text-emerald-600">Approved by HSSE</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                  <span className="text-emerald-600">Approved by User</span>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </td>
                         <td className="px-5 py-4 text-center">
-                          <Link
-                            href={`/hse-plan/detail/${doc.no}`}
-                            className="rounded-lg bg-blue-50 border border-blue-200 text-blue-650 hover:bg-blue-100 px-3 py-1.5 text-[10px] font-extrabold transition-all"
-                          >
-                            Review
-                          </Link>
+                          {doc.status === "New" ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <Link
+                                href={`/hse-plan/create?no=${doc.no}`}
+                                className="inline-flex rounded-lg bg-amber-50 border border-amber-200 text-amber-600 hover:bg-amber-100 px-3 py-1.5 text-[10px] font-extrabold transition-all"
+                              >
+                                Continue
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(doc.no, doc.nama)}
+                                className="inline-flex rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 px-3 py-1.5 text-[10px] font-extrabold transition-all cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+                              <Link
+                                href={`/hse-plan/detail/${doc.no}`}
+                                className="inline-flex rounded-lg bg-blue-50 border border-blue-200 text-blue-650 hover:bg-blue-100 px-2.5 py-1.5 text-[10px] font-extrabold transition-all"
+                              >
+                                Review
+                              </Link>
+                              <Link
+                                href={`/hse-plan/create?no=${doc.no}`}
+                                className="inline-flex rounded-lg bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200 px-2.5 py-1.5 text-[10px] font-extrabold transition-all"
+                              >
+                                Edit
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(doc.no, doc.nama)}
+                                className="inline-flex rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 px-2.5 py-1.5 text-[10px] font-extrabold transition-all cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-5 py-12 text-center text-slate-400 font-bold">
+                      <td colSpan={7} className="px-5 py-12 text-center text-slate-400 font-bold">
                         No HSE Plan documents matching &quot;{searchQuery}&quot;
                       </td>
                     </tr>
