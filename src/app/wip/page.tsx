@@ -318,7 +318,7 @@ export default function WipLandingPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Penilaian ke-</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">WIP Assessment Stage</label>
                     <select
                       value={currentProc.penilaianKe}
                       disabled
