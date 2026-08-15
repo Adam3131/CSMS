@@ -3,10 +3,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { uploadDocumentFile, addDocument, insertDocumentRecord, openDocument, getDocuments } from "../../utils/documentStore";
+import { useRouter } from "next/navigation";
+import { uploadDocumentFile, addDocument, insertDocumentRecord, openDocument, getDocuments, saveDocuments } from "../../utils/documentStore";
 import { getCurrentUser, logout, getRoleDetails } from "../../utils/userStore";
+import { supabase, isSupabaseConfigured } from "../../utils/supabaseClient";
+import ManagerPreviewModal from "../../components/ManagerPreviewModal";
 
 export default function ManagerDashboard() {
+  const router = useRouter();
   const [selectedProcurement, setSelectedProcurement] = useState<string>("");
   
   // Category filter state: null means no filter (show all)
@@ -16,6 +20,19 @@ export default function ManagerDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploadsModalOpen, setIsUploadsModalOpen] = useState(false);
   const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<any>(null);
+  
+  // Manager Preview Modal states
+  const [managerPreviewDoc, setManagerPreviewDoc] = useState<any>(null);
+  const [isManagerPreviewOpen, setIsManagerPreviewOpen] = useState(false);
+
+  const getEditPath = (type: string, id: number) => {
+    if (type === "HSE Plan") return `/hse-plan/create?no=${id}`;
+    if (type === "PJA") return `/pje/create?no=${id}`;
+    if (type === "WIP") return `/wip/create?no=${id}`;
+    if (type === "FE") return `/fe/create?no=${id}`;
+    return "#";
+  };
 
   // Form states for the upload document modal
   const [uploadTitle, setUploadTitle] = useState("");
@@ -161,6 +178,8 @@ export default function ManagerDashboard() {
         progress: progress,
         progressColor: getProgressColor(progress),
         date: doc.added,
+        fileName: doc.fileName || null,
+        filePath: doc.filePath || null,
       };
     });
   }, [dbDocuments]);
@@ -361,35 +380,73 @@ export default function ManagerDashboard() {
         return;
       }
 
-      const insertRes = await insertDocumentRecord({
-        nama: uploadTitle,
-        added: formattedDate.replace(/ /g, "-"),
-        addedDate: new Date().toISOString(),
-        status: "On Review",
-        type: uploadType,
-        fileName: selectedFileName || undefined,
-        filePath: uploadResult.filePath || undefined,
-      });
+      if (editingDoc) {
+        // Edit Mode: update file in Supabase & localStorage fallback
+        if (isSupabaseConfigured) {
+          const { error } = await supabase
+            .from("documents")
+            .update({
+              file_name: selectedFileName,
+              file_path: uploadResult.filePath
+            })
+            .eq("no", editingDoc.id);
 
-      if (!insertRes.success) {
-        // fallback to local storage for UX, but notify user about DB failure
-        await addDocument({
+          if (error) {
+            console.error("Failed to update file in Supabase:", error);
+            // Fallback: update local storage list
+            const docs = await getDocuments();
+            const updated = docs.map((doc) =>
+              doc.no === editingDoc.id
+                ? { ...doc, fileName: selectedFileName, filePath: uploadResult.filePath }
+                : doc
+            );
+            await saveDocuments(updated);
+          }
+        } else {
+          // Local storage fallback update
+          const docs = await getDocuments();
+          const updated = docs.map((doc) =>
+            doc.no === editingDoc.id
+              ? { ...doc, fileName: selectedFileName, filePath: uploadResult.filePath }
+              : doc
+          );
+          await saveDocuments(updated);
+        }
+        showToast("success", "Edit Berhasil", `File dokumen berhasil diperbarui.`);
+      } else {
+        // Create Mode
+        const insertRes = await insertDocumentRecord({
           nama: uploadTitle,
           added: formattedDate.replace(/ /g, "-"),
           addedDate: new Date().toISOString(),
-          status: "On Review",
+          status: "New",
           type: uploadType,
-          fileName: selectedFileName,
-          filePath: uploadResult.filePath,
+          fileName: selectedFileName || undefined,
+          filePath: uploadResult.filePath || undefined,
         });
-        console.error("Failed to insert document into Supabase:", insertRes, JSON.stringify(insertRes.error, null, 2));
-        const errText = typeof insertRes.error === "string" ? insertRes.error : JSON.stringify(insertRes.error);
-        showToast("error", "Unggah Tersimpan (Local)", `Dokumen disimpan lokal. DB error: ${errText}`);
+
+        if (!insertRes.success) {
+          // fallback to local storage for UX, but notify user about DB failure
+          await addDocument({
+            nama: uploadTitle,
+            added: formattedDate.replace(/ /g, "-"),
+            addedDate: new Date().toISOString(),
+            status: "New",
+            type: uploadType,
+            fileName: selectedFileName,
+            filePath: uploadResult.filePath,
+          });
+          console.error("Failed to insert document into Supabase:", insertRes, JSON.stringify(insertRes.error, null, 2));
+          const errText = typeof insertRes.error === "string" ? insertRes.error : JSON.stringify(insertRes.error);
+          showToast("error", "Unggah Tersimpan (Local)", `Dokumen disimpan lokal. DB error: ${errText}`);
+        } else {
+          showToast("success", "Unggah Berhasil", `Dokumen "${selectedFileName}" berhasil diunggah.`);
+        }
       }
 
       await loadDBDocuments();
-      setSelectedProcurement(uploadTitle);
       setIsUploadDocModalOpen(false);
+      setEditingDoc(null);
       setSelectedFileName(null);
       setSelectedFile(null);
       if (fileInputRef.current) {
@@ -874,11 +931,11 @@ export default function ManagerDashboard() {
                   <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
                     <thead className="bg-slate-55 font-bold text-slate-400">
                       <tr>
-                        <th scope="col" className="px-4 py-3 w-1/2">Judul Pengadaan</th>
+                        <th scope="col" className="px-4 py-3 w-[45%]">Judul Pengadaan</th>
                         <th scope="col" className="px-4 py-3 w-24">Kategori</th>
                         <th scope="col" className="px-4 py-3 w-28">Progress</th>
                         <th scope="col" className="px-4 py-3 w-24">Last Update</th>
-                        <th scope="col" className="px-3 py-3 w-8"></th>
+                        <th scope="col" className="px-4 py-3 w-40 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
@@ -908,10 +965,39 @@ export default function ManagerDashboard() {
                               </div>
                             </td>
                             <td className="px-4 py-3.5 text-slate-400 font-semibold">{row.date}</td>
-                            <td className="px-3 py-3.5 text-slate-350 text-right">
-                              <svg className="h-3.5 w-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                              </svg>
+                            <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1.5">
+                                {(row.status === "Done" || row.status === "Approved") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setManagerPreviewDoc({
+                                        no: row.id,
+                                        nama: row.title,
+                                        type: row.type,
+                                        status: row.status
+                                      });
+                                      setIsManagerPreviewOpen(true);
+                                    }}
+                                    className="inline-flex items-center rounded-lg bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+                                  >
+                                    Review
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingDoc(row);
+                                    setUploadTitle(row.title);
+                                    setUploadType(row.type);
+                                    setSelectedFileName(row.fileName || null);
+                                    setIsUploadDocModalOpen(true);
+                                  }}
+                                  className="inline-flex items-center rounded-lg bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -1294,12 +1380,17 @@ export default function ManagerDashboard() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <div>
-                <h3 className="text-base font-bold text-slate-800">Unggah Dokumen Baru</h3>
-                <p className="text-[11px] text-slate-455 mt-0.5 font-medium">Pilih pengadaan dan berkas dokumen yang ingin Anda unggah.</p>
+                <h3 className="text-base font-bold text-slate-800">
+                  {editingDoc ? "Ganti File PDF Dokumen" : "Unggah Dokumen Baru"}
+                </h3>
+                <p className="text-[11px] text-slate-455 mt-0.5 font-medium">
+                  {editingDoc ? "Perbarui berkas dokumen PDF untuk pengadaan ini." : "Pilih pengadaan dan berkas dokumen yang ingin Anda unggah."}
+                </p>
               </div>
               <button
                 onClick={() => {
                   setIsUploadDocModalOpen(false);
+                  setEditingDoc(null);
                   setSelectedFileName(null);
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
@@ -1323,8 +1414,11 @@ export default function ManagerDashboard() {
                     value={uploadTitle}
                     onChange={(e) => setUploadTitle(e.target.value)}
                     required
+                    disabled={!!editingDoc}
                     placeholder="Masukkan judul pengadaan..."
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white transition-all focus:bg-white"
+                    className={`w-full rounded-xl border border-slate-200 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white transition-all focus:bg-white ${
+                      editingDoc ? "bg-slate-50 text-slate-400 cursor-not-allowed border-slate-100" : ""
+                    }`}
                   />
                 </div>
 
@@ -1335,8 +1429,11 @@ export default function ManagerDashboard() {
                   </label>
                   <select
                     value={uploadType}
+                    disabled={!!editingDoc}
                     onChange={(e) => setUploadType(e.target.value as "HSE Plan" | "PJA" | "WIP" | "FE")}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white transition-all cursor-pointer"
+                    className={`w-full rounded-xl border border-slate-200 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white transition-all cursor-pointer ${
+                      editingDoc ? "bg-slate-50 text-slate-400 cursor-not-allowed border-slate-100" : ""
+                    }`}
                   >
                     <option value="HSE Plan">HSE Plan</option>
                     <option value="PJA">Pre Job Assessment (PJA)</option>
@@ -1466,6 +1563,12 @@ export default function ManagerDashboard() {
           </div>
         </div>
       )}
+
+      <ManagerPreviewModal
+        isOpen={isManagerPreviewOpen}
+        onClose={() => setIsManagerPreviewOpen(false)}
+        document={managerPreviewDoc}
+      />
     </>
   );
 }
