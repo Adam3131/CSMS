@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DocumentItem, getDocuments } from "../../utils/documentStore";
 import Sidebar from "../../components/Sidebar";
+import { supabase, isSupabaseConfigured } from "../../utils/supabaseClient";
 
 const MOCK_PROCUREMENTS = [
   {
@@ -45,8 +46,18 @@ export default function PjeLandingPage() {
   const [sortField, setSortField] = useState<"nama" | "added">("nama");
   const [sortAsc, setSortAsc] = useState(true);
   
-  // Interactive card mock data state
-  const [mockIndex, setMockIndex] = useState(0);
+  // Collapsible accordion form states
+  const [expandedDocNo, setExpandedDocNo] = useState<number | null>(null);
+  const [formCompany, setFormCompany] = useState("");
+  const [formType, setFormType] = useState("Time Charter");
+  const [formProjectName, setFormProjectName] = useState("");
+  const [formLocation, setFormLocation] = useState("");
+  const [formDuration, setFormDuration] = useState("");
+
+  // Preview Modal states
+  const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
+  const [previewData, setPreviewData] = useState<any | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -83,20 +94,97 @@ export default function PjeLandingPage() {
     }
   };
 
-  const handleLoadNewData = () => {
-    setMockIndex((prev) => (prev + 1) % MOCK_PROCUREMENTS.length);
+  const handleResumeProcessClick = (doc: DocumentItem) => {
+    if (expandedDocNo === doc.no) {
+      setExpandedDocNo(null);
+    } else {
+      setExpandedDocNo(doc.no);
+      setFormProjectName(doc.nama);
+      setFormCompany("");
+      setFormType("Time Charter");
+      setFormLocation("");
+      setFormDuration("");
+    }
   };
 
-  const handleAddClick = () => {
-    const current = MOCK_PROCUREMENTS[mockIndex];
-    const params = new URLSearchParams({
-      company: current.perusahaan,
-      projectName: current.pengadaan,
-      location: current.lokasi,
-      type: current.tipe,
-      duration: current.durasi
-    });
-    router.push(`/pje/create?${params.toString()}`);
+  const handlePreviewClick = async (doc: DocumentItem) => {
+    setPreviewDoc(doc);
+    setPreviewData(null);
+    setIsPreviewLoading(true);
+
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from("pja_submissions")
+          .select("*")
+          .eq("document_no", doc.no)
+          .single();
+        if (data && !error) {
+          setPreviewData(data);
+        } else {
+          setPreviewData({
+            vendor_name: "PT Warna SeBahtera",
+            project_name: doc.nama,
+            bidang_usaha: "Jasa Pelayaran & Pengangkutan Gas",
+            evaluation_date: "2024-02-22",
+            evaluator_name: "PUTRI FATIMA SUNNIA",
+            pic_jabatan: "Environmental & HSSE Governance",
+            lokasi_pekerjaan: "Jakarta / Bontang",
+            answers: {
+              scoreP1_1: "YES",
+              scoreP1_2: "YES",
+              scoreP1_3: "NO",
+              scoreP1_4: "YES",
+              scoreP7_1: "YES",
+              scoreP7_2: "NO",
+            },
+            notes: {
+              scoreP1_1: "Sertifikat valid",
+              scoreP1_2: "Laporan tersedia",
+              scoreP1_3: "Dokumen kurang",
+              scoreP1_4: "SOP lengkap",
+              scoreP7_1: "Evaluasi rutin",
+              scoreP7_2: "Rencana perbaikan belum ada",
+            },
+            due_date: "2024-03-31",
+            keterangan: "Review compliance documents complete.",
+          });
+        }
+      } catch (err) {
+        console.error("Error loading preview:", err);
+      } finally {
+        setIsPreviewLoading(false);
+      }
+    } else {
+      setPreviewData({
+        vendor_name: "PT Warna SeBahtera",
+        project_name: doc.nama,
+        bidang_usaha: "Jasa Pelayaran & Pengangkutan Gas",
+        evaluation_date: "2024-02-22",
+        evaluator_name: "PUTRI FATIMA SUNNIA",
+        pic_jabatan: "Environmental & HSSE Governance",
+        lokasi_pekerjaan: "Jakarta / Bontang",
+        answers: {
+          scoreP1_1: "YES",
+          scoreP1_2: "YES",
+          scoreP1_3: "NO",
+          scoreP1_4: "YES",
+          scoreP7_1: "YES",
+          scoreP7_2: "NO",
+        },
+        notes: {
+          scoreP1_1: "Sertifikat valid",
+          scoreP1_2: "Laporan tersedia",
+          scoreP1_3: "Dokumen kurang",
+          scoreP1_4: "SOP lengkap",
+          scoreP7_1: "Evaluasi rutin",
+          scoreP7_2: "Rencana perbaikan belum ada",
+        },
+        due_date: "2024-03-31",
+        keterangan: "Review compliance documents complete.",
+      });
+      setIsPreviewLoading(false);
+    }
   };
 
   if (!isMounted) {
@@ -110,7 +198,6 @@ export default function PjeLandingPage() {
     );
   }
 
-  const currentProc = MOCK_PROCUREMENTS[mockIndex];
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
@@ -170,151 +257,9 @@ export default function PjeLandingPage() {
             </div>
           </div>
 
-          {/* Interactive Card */}
-          <div className="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Left Column: Search, Document Preview, Load Button */}
-              <div className="lg:col-span-4 flex flex-col gap-4">
-                <div className="relative">
-                  <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Search documents..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="block w-full rounded-xl border border-slate-200 bg-white pl-4 pr-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none shadow-sm transition-all focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 font-medium"
-                  />
-                </div>
-
-                {/* CSS Styled Document Preview Image */}
-                <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-4 aspect-[4/3] flex flex-col justify-between shadow-inner relative overflow-hidden select-none">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                      <span className="font-extrabold text-[8px] text-blue-650 tracking-wider">PRE-JOB ASSESSMENT</span>
-                      <span className="text-[6px] text-slate-400 font-bold">FORM-PJA-02</span>
-                    </div>
-                    <div className="h-2 w-3/4 bg-slate-200 rounded-sm" />
-                    <div className="h-2 w-1/2 bg-slate-200 rounded-sm" />
-                    <div className="h-2 w-5/6 bg-slate-200 rounded-sm" />
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <div className="space-y-1">
-                      <div className="h-1.5 w-8 bg-slate-100 rounded-sm" />
-                      <div className="h-1.5 w-12 bg-slate-100 rounded-sm" />
-                    </div>
-                    <span className="text-2xl font-black text-slate-200/90 tracking-tight">PJA</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleLoadNewData}
-                  className="w-full rounded-xl border border-slate-200 py-2.5 text-center text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 active:scale-[0.99] shadow-sm cursor-pointer"
-                >
-                  Load new data
-                </button>
-              </div>
-
-              {/* Right Column: Read-Only / Interactive Fields */}
-              <div className="lg:col-span-8 flex flex-col justify-between">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nama Perusahaan</label>
-                    <input
-                      type="text"
-                      readOnly
-                      value={currentProc.perusahaan}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-600 outline-none cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tipe Pengadaan</label>
-                    <input
-                      type="text"
-                      readOnly
-                      value={currentProc.tipe}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-600 outline-none cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nama Pengadaan</label>
-                    <textarea
-                      readOnly
-                      rows={2}
-                      value={currentProc.pengadaan}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-600 outline-none resize-none cursor-default leading-relaxed"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lokasi Pengadaan</label>
-                    <input
-                      type="text"
-                      readOnly
-                      value={currentProc.lokasi}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-600 outline-none cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Durasi Kontrak</label>
-                    <input
-                      type="text"
-                      readOnly
-                      value={currentProc.durasi}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-600 outline-none cursor-default"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nilai</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        readOnly
-                        value={currentProc.nilai}
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50/70 pl-3 pr-10 py-2 text-xs font-bold text-blue-650 outline-none cursor-default"
-                      />
-                      <span className="absolute inset-y-0 right-3 flex items-center text-[9px] text-blue-500 font-extrabold uppercase">Form</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Feedback</label>
-                    <textarea
-                      readOnly
-                      rows={2}
-                      value={currentProc.feedback}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-500 outline-none resize-none cursor-default leading-relaxed"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end mt-4">
-                  <button
-                    onClick={handleAddClick}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-750 px-8 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
           {/* PJA Compliance Documents Table */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
-            <div className="flex justify-between items-center select-none">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 select-none">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => router.push("/dashboard")}
@@ -329,9 +274,25 @@ export default function PjeLandingPage() {
                   PJA Compliance Documents
                 </h2>
               </div>
-              <span className="text-xs text-slate-400 font-bold">
-                Showing {sortedDocuments.length} of {pjaDocuments.length} PJA Documents
-              </span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                    <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search documents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="block w-full rounded-xl border border-slate-200 bg-white pl-4 pr-10 py-1.5 text-xs text-slate-900 placeholder-slate-400 outline-none shadow-sm transition-all focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 font-medium"
+                  />
+                </div>
+                <span className="text-xs text-slate-400 font-bold shrink-0 text-right">
+                  Showing {sortedDocuments.length} of {pjaDocuments.length} PJA Documents
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-100">
@@ -363,49 +324,176 @@ export default function PjeLandingPage() {
                         </span>
                       </div>
                     </th>
+                    <th scope="col" className="px-5 py-3.5 w-32 text-center">Status</th>
                     <th scope="col" className="px-5 py-3.5 w-32">Nilai</th>
-                    <th scope="col" className="px-5 py-3.5 w-28 text-center">Action</th>
+                    <th scope="col" className="px-5 py-3.5 w-36 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
                   {sortedDocuments.length > 0 ? (
-                    sortedDocuments.map((doc, idx) => (
-                      <tr key={doc.no} className="hover:bg-slate-55/40 transition-all">
-                        <td className="px-5 py-4 text-slate-400">{idx + 1}</td>
-                        <td className="px-5 py-4 font-semibold text-slate-900 leading-relaxed max-w-md">
-                          {doc.nama}
-                        </td>
-                        <td className="px-5 py-4 text-slate-500 font-semibold">{doc.added}</td>
-                        <td className="px-5 py-4 text-blue-700 font-bold">
-                          {doc.nilai || "6.00"}
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center justify-center gap-3">
-                            <button
-                              onClick={() => alert(`Reviewing actions for: ${doc.nama}`)}
-                              className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-                              title="Email Audit Report"
-                            >
-                              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => alert(`Editing document: ${doc.nama}`)}
-                              className="text-slate-400 hover:text-amber-600 transition-colors cursor-pointer"
-                              title="Edit Compliance Form"
-                            >
-                              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    sortedDocuments.map((doc, idx) => {
+                      const isExpanded = expandedDocNo === doc.no;
+                      return (
+                        <React.Fragment key={doc.no}>
+                          <tr className="hover:bg-slate-50/50 transition-all">
+                            <td className="px-5 py-4 text-slate-400">{idx + 1}</td>
+                            <td className="px-5 py-4 font-semibold text-slate-900 leading-relaxed max-w-md">
+                              {doc.nama}
+                            </td>
+                            <td className="px-5 py-4 text-slate-500 font-semibold">{doc.added}</td>
+                            <td className="px-5 py-4 text-center">
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-extrabold border ${
+                                  doc.status === "New"
+                                    ? "bg-red-50 border-red-100 text-red-655"
+                                    : doc.status === "On Progress"
+                                    ? "bg-amber-50 border-amber-100 text-amber-655"
+                                    : "bg-emerald-50 border-emerald-100 text-emerald-655"
+                                }`}
+                              >
+                                {doc.status === "New" ? "New" : "Complete"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-blue-700 font-bold">
+                              {doc.status === "New" ? "-" : (doc.nilai || "6.00")}
+                            </td>
+                            <td className="px-5 py-4 text-center">
+                              {doc.status === "New" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleResumeProcessClick(doc)}
+                                  className="inline-flex rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-650 hover:bg-indigo-100 px-3 py-1.5 text-[10px] font-extrabold transition-all cursor-pointer font-sans"
+                                >
+                                  {isExpanded ? "Hide Form" : "Resume Process"}
+                                </button>
+                              ) : (
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePreviewClick(doc)}
+                                    className="inline-flex rounded-lg bg-blue-50 border border-blue-200 text-blue-650 hover:bg-blue-100 px-2.5 py-1.5 text-[10px] font-extrabold transition-all cursor-pointer font-sans"
+                                  >
+                                    Preview
+                                  </button>
+                                  <Link
+                                    href={`/pje/create?no=${doc.no}`}
+                                    className="inline-flex rounded-lg bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200 px-2.5 py-1.5 text-[10px] font-extrabold transition-all font-sans"
+                                  >
+                                    Edit
+                                  </Link>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                          
+                          {/* Collapsible Accordion Form */}
+                          {isExpanded && (
+                            <tr className="bg-slate-50/40">
+                              <td colSpan={6} className="px-8 py-6 border-b border-slate-100">
+                                <div className="max-w-3xl border border-slate-200 rounded-2xl bg-white p-6 shadow-sm space-y-4">
+                                  <div className="border-b border-slate-100 pb-3">
+                                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                                      Resume Pre Job Assessment Process
+                                    </h4>
+                                    <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                                      Silakan isi detail pengadaan kontraktor di bawah ini sebelum melanjutkan ke kuesioner.
+                                    </p>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Nama Perusahaan</label>
+                                      <input
+                                        type="text"
+                                        placeholder="Masukkan nama perusahaan..."
+                                        value={formCompany}
+                                        onChange={(e) => setFormCompany(e.target.value)}
+                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Tipe Pengadaan</label>
+                                      <select
+                                        value={formType}
+                                        onChange={(e) => setFormType(e.target.value)}
+                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10"
+                                      >
+                                        <option value="Time Charter">Time Charter</option>
+                                        <option value="Chartering Services">Chartering Services</option>
+                                        <option value="Keagenan Kapal">Keagenan Kapal</option>
+                                      </select>
+                                    </div>
+
+                                    <div className="space-y-1.5 md:col-span-2">
+                                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Nama Pengadaan</label>
+                                      <textarea
+                                        rows={2}
+                                        value={formProjectName}
+                                        onChange={(e) => setFormProjectName(e.target.value)}
+                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 resize-none leading-relaxed"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Lokasi Pengadaan</label>
+                                      <input
+                                        type="text"
+                                        placeholder="Masukkan lokasi..."
+                                        value={formLocation}
+                                        onChange={(e) => setFormLocation(e.target.value)}
+                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Durasi Kontrak</label>
+                                      <input
+                                        type="text"
+                                        placeholder="Masukkan durasi..."
+                                        value={formDuration}
+                                        onChange={(e) => setFormDuration(e.target.value)}
+                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedDocNo(null)}
+                                      className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-xs font-bold text-slate-655 hover:bg-slate-50 transition-all cursor-pointer font-sans"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const params = new URLSearchParams({
+                                          no: doc.no.toString(),
+                                          company: formCompany,
+                                          projectName: formProjectName,
+                                          location: formLocation,
+                                          type: formType,
+                                          duration: formDuration
+                                        });
+                                        router.push(`/pje/create?${params.toString()}`);
+                                      }}
+                                      className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-650 px-6 py-2 text-xs font-bold text-white shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer font-sans"
+                                    >
+                                      Continue
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-5 py-12 text-center text-slate-400 font-bold">
+                      <td colSpan={6} className="px-5 py-12 text-center text-slate-400 font-bold">
                         No PJA documents matching &quot;{searchQuery}&quot;
                       </td>
                     </tr>
@@ -415,6 +503,158 @@ export default function PjeLandingPage() {
             </div>
           </div>
         </main>
+
+        {/* Preview Modal */}
+        {previewDoc && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+            <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-slate-100 flex flex-col max-h-[85vh]">
+              
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 p-6">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                    Pre Job Assessment (PJA) Detail Preview
+                  </h3>
+                  <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                    No. Dokumen: {previewDoc.no}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPreviewDoc(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-655 transition-colors cursor-pointer"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {isPreviewLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-650 border-t-transparent" />
+                    <p className="text-xs font-semibold text-slate-400">Loading PJA details...</p>
+                  </div>
+                ) : previewData ? (
+                  <div className="space-y-6 text-xs text-slate-700">
+                    {/* General Info Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border border-slate-200/60 bg-slate-50/50 p-4">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Nama Perusahaan</p>
+                        <p className="font-bold text-slate-800 mt-1 text-left">{previewData.vendor_name || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Bidang Usaha</p>
+                        <p className="font-bold text-slate-800 mt-1 text-left">{previewData.bidang_usaha || "-"}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Nama Pengadaan</p>
+                        <p className="font-semibold text-slate-800 leading-relaxed mt-1 text-left">{previewData.project_name || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Lokasi Pekerjaan</p>
+                        <p className="font-semibold text-slate-750 mt-1 text-left">{previewData.lokasi_pekerjaan || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Tanggal Verifikasi</p>
+                        <p className="font-semibold text-slate-750 mt-1 text-left">{previewData.evaluation_date || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Evaluator</p>
+                        <p className="font-bold text-slate-800 mt-1 text-left">{previewData.evaluator_name || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">PIC Jabatan</p>
+                        <p className="font-semibold text-slate-755 mt-1 text-left">{previewData.pic_jabatan || "-"}</p>
+                      </div>
+                    </div>
+
+                    {/* Checklist Questionnaire Assessment */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide text-left">Questionnaire Assessment Details</h4>
+                      <div className="border border-slate-100 rounded-xl overflow-hidden">
+                        <table className="min-w-full divide-y divide-slate-100 text-left text-xs font-medium">
+                          <thead className="bg-slate-50 font-bold text-slate-505">
+                            <tr>
+                              <th className="px-4 py-3">Pertanyaan</th>
+                              <th className="px-4 py-3 w-28 text-center">Jawaban</th>
+                              <th className="px-4 py-3 w-48">Keterangan</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white text-slate-750">
+                            {[
+                              { key: "scoreP1_1", q: "Apakah Kontraktor telah memiliki Kebijakan & Sasaran Aspek HSSE?" },
+                              { key: "scoreP1_2", q: "Apakah Kontraktor memiliki HSSE Plan sesuai dengan sifat pekerjaan?" },
+                              { key: "scoreP1_3", q: "Apakah Kontraktor memiliki struktur organisasi HSSE yang memadai?" },
+                              { key: "scoreP1_4", q: "Apakah Kontraktor memiliki SOP aspek HSSE?" },
+                              { key: "scoreP7_1", q: "Apakah ada rencana pemantauan & tinjauan aspek HSSE berkala?" },
+                              { key: "scoreP7_2", q: "Apakah rencana mitigasi kecelakaan kerja sudah disusun?" },
+                            ].map((item) => {
+                              const answer = previewData.answers?.[item.key];
+                              const note = previewData.notes?.[item.key] || "-";
+                              return (
+                                <tr key={item.key} className="hover:bg-slate-50/50">
+                                  <td className="px-4 py-3 leading-relaxed font-semibold text-slate-800 text-left">{item.q}</td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span
+                                      className={`inline-flex rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase ${
+                                        answer === "YES"
+                                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                                          : answer === "NO"
+                                          ? "bg-red-50 text-red-600 border border-red-100"
+                                          : "bg-slate-100 text-slate-500"
+                                      }`}
+                                    >
+                                      {answer || "N/A"}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-500 italic font-medium text-left">{note}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Additional Notes */}
+                    {(previewData.due_date || previewData.keterangan) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+                        {previewData.due_date && (
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Due Date Rencana Kerja</p>
+                            <p className="font-semibold text-slate-750 mt-1 text-left">{previewData.due_date}</p>
+                          </div>
+                        )}
+                        {previewData.keterangan && (
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Keterangan / Catatan Evaluator</p>
+                            <p className="font-medium text-slate-700 whitespace-pre-line mt-1 text-left">{previewData.keterangan}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-slate-400 font-bold">
+                    No detailed assessment data found.
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="border-t border-slate-100 bg-slate-50/50 p-4 rounded-b-2xl flex justify-end">
+                <button
+                  onClick={() => setPreviewDoc(null)}
+                  className="rounded-xl border border-slate-200 bg-white px-6 py-2 text-xs font-bold text-slate-655 hover:bg-slate-50 transition-all cursor-pointer font-sans"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

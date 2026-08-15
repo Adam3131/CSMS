@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../../components/Sidebar";
-import { DocumentItem, getDocuments, addDocument } from "../../../utils/documentStore";
-import { supabase } from "../../../utils/supabaseClient";
+import { DocumentItem, getDocuments, addDocument, saveDocuments, openDocument } from "../../../utils/documentStore";
+import { supabase, isSupabaseConfigured } from "../../../utils/supabaseClient";
+import { getCurrentUser, getRoleDetails } from "../../../utils/userStore";
 
 function PjeCreateContent() {
   const router = useRouter();
@@ -19,29 +20,126 @@ function PjeCreateContent() {
   // Wizard state: 1, 2, or 3
   const [pjaStep, setPjaStep] = useState<1 | 2 | 3>(1);
 
-  // Form states initialized from URL params if available
-  const [vendorName, setVendorName] = useState("PT Warna SeBahtera");
-  const [projectName, setProjectName] = useState(
-    "Pengadaan Time Charter 1 (one) Unit VLGC Laycan 19-20 Februari 2024 (LPGC SC Commander LVII)"
-  );
+  // Form states initialized dynamically
+  const [vendorName, setVendorName] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [pjaBidangUsaha, setPjaBidangUsaha] = useState("Jasa Pelayaran & Pengangkutan Gas");
-  const [evaluationDate, setEvaluationDate] = useState("2024-02-22");
-  const [evaluatorName, setEvaluatorName] = useState("PUTRI FATIMA SUNNIA");
+  const [evaluationDate, setEvaluationDate] = useState("");
+  const [evaluatorName, setEvaluatorName] = useState("");
   const [picJabatan, setPicJabatan] = useState("");
   const [lokasiPekerjaan, setLokasiPekerjaan] = useState("");
+  const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   // Sync params on mount
   useEffect(() => {
     setIsMounted(true);
-    getDocuments().then(setDocuments);
+    getDocuments().then(async (docs) => {
+      setDocuments(docs);
+      
+      const docNo = searchParams.get("no");
+      if (docNo) {
+        const targetNo = parseInt(docNo, 10);
+        const doc = docs.find((d) => d.no === targetNo);
+        if (doc) {
+          setSelectedDoc(doc);
+          setProjectName(doc.nama);
+          
+          if (doc.filePath) {
+            openDocument(doc.filePath).then((url) => {
+              if (url) {
+                setPdfPreviewUrl(url);
+              }
+            });
+          }
+          
+          if (isSupabaseConfigured) {
+            try {
+              const { data, error } = await supabase
+                .from("pja_submissions")
+                .select("*")
+                .eq("document_no", targetNo)
+                .single();
+              if (data && !error) {
+                setVendorName(data.vendor_name || "");
+                setProjectName(data.project_name || doc.nama);
+                setPjaBidangUsaha(data.bidang_usaha || "Jasa Pelayaran & Pengangkutan Gas");
+                setEvaluationDate(data.evaluation_date || new Date().toISOString().split("T")[0]);
+                setEvaluatorName(data.evaluator_name || "");
+                setPicJabatan(data.pic_jabatan || "");
+                setLokasiPekerjaan(data.lokasi_pekerjaan || "");
+                if (data.answers) setPjaAnswers(data.answers);
+                if (data.notes) setPjaNotes(data.notes);
+                if (data.keterangan) setPjaKeteranganP7(data.keterangan);
+                if (data.due_date) {
+                  const parts = data.due_date.split("-");
+                  if (parts.length === 3) {
+                    setPjaDueDate(`${parts[2]}/${parts[1]}/${parts[0]}`);
+                  }
+                }
+              } else {
+                // If doc found but no sub-record saved yet
+                const companyParam = searchParams.get("company");
+                if (companyParam) setVendorName(companyParam);
+                const locationParam = searchParams.get("location");
+                if (locationParam) setLokasiPekerjaan(locationParam);
+                setEvaluationDate(new Date().toISOString().split("T")[0]);
+                
+                const user = getCurrentUser();
+                if (user) {
+                  setEvaluatorName(user.fullName);
+                  const details = getRoleDetails(user.role);
+                  setPicJabatan(details.position || "Environmental & HSSE Governance");
+                } else {
+                  setEvaluatorName("PUTRI FATIMA SUNNIA");
+                  setPicJabatan("Environmental & HSSE Governance");
+                }
+              }
+            } catch (err) {
+              console.error("Failed to load PJA details:", err);
+            }
+          } else {
+            // Local fallback
+            const companyParam = searchParams.get("company");
+            if (companyParam) setVendorName(companyParam);
+            const locationParam = searchParams.get("location");
+            if (locationParam) setLokasiPekerjaan(locationParam);
+            setEvaluationDate(new Date().toISOString().split("T")[0]);
+            
+            const user = getCurrentUser();
+            if (user) {
+              setEvaluatorName(user.fullName);
+              const details = getRoleDetails(user.role);
+              setPicJabatan(details.position || "Environmental & HSSE Governance");
+            } else {
+              setEvaluatorName("PUTRI FATIMA SUNNIA");
+              setPicJabatan("Environmental & HSSE Governance");
+            }
+          }
+        }
+      } else {
+        // Brand new creation
+        const companyParam = searchParams.get("company");
+        const projectParam = searchParams.get("projectName");
+        const locationParam = searchParams.get("location");
 
-    const companyParam = searchParams.get("company");
-    const projectParam = searchParams.get("projectName");
-    const locationParam = searchParams.get("location");
-
-    if (companyParam) setVendorName(companyParam);
-    if (projectParam) setProjectName(projectParam);
-    if (locationParam) setLokasiPekerjaan(locationParam);
+        if (companyParam) setVendorName(companyParam);
+        if (projectParam) setProjectName(projectParam);
+        if (locationParam) setLokasiPekerjaan(locationParam);
+        
+        setEvaluationDate(new Date().toISOString().split("T")[0]);
+        
+        const user = getCurrentUser();
+        if (user) {
+          setEvaluatorName(user.fullName);
+          const details = getRoleDetails(user.role);
+          setPicJabatan(details.position || "Environmental & HSSE Governance");
+        } else {
+          setEvaluatorName("PUTRI FATIMA SUNNIA");
+          setPicJabatan("Environmental & HSSE Governance");
+        }
+      }
+    });
   }, [searchParams]);
 
   // Scoring matrix answers
@@ -138,19 +236,48 @@ function PjeCreateContent() {
         .replace(/ /g, "-");
 
       const calculatedScore = pjaTotalSemuaProses.toFixed(2);
+      const docNo = searchParams.get("no");
+      let newDocNo: number | null = null;
 
-      // 1. Insert into documents table, get back the new document's no
-      const updatedDocs = await addDocument({
-        nama: projectName,
-        added: dateFormatted,
-        addedDate: new Date().toISOString(),
-        status: "Done",
-        type: "PJA",
-        nilai: calculatedScore,
-      });
-
-      // updatedDocs is sorted descending, so the first item is the newest
-      const newDocNo = updatedDocs[0]?.no ?? null;
+      if (docNo) {
+        // Edit / Update existing document
+        const targetNo = parseInt(docNo, 10);
+        newDocNo = targetNo;
+        
+        const docs = await getDocuments();
+        const updated = docs.map((d) => {
+          if (d.no === targetNo) {
+            return {
+              ...d,
+              status: "Done" as const,
+              nilai: calculatedScore,
+            };
+          }
+          return d;
+        });
+        saveDocuments(updated);
+        
+        if (isSupabaseConfigured) {
+          await supabase
+            .from("documents")
+            .update({
+              status: "Done",
+              nilai: calculatedScore
+            })
+            .eq("no", targetNo);
+        }
+      } else {
+        // Brand new insert
+        const updatedDocs = await addDocument({
+          nama: projectName,
+          added: dateFormatted,
+          addedDate: new Date().toISOString(),
+          status: "Done",
+          type: "PJA",
+          nilai: calculatedScore,
+        });
+        newDocNo = updatedDocs[0]?.no ?? null;
+      }
 
       // 2. Parse due_date from DD/MM/YYYY → YYYY-MM-DD for Supabase date type
       let parsedDueDate: string | null = null;
@@ -161,9 +288,9 @@ function PjeCreateContent() {
         }
       }
 
-      // 3. Insert detailed record into pja_submissions
-      const { error: pjaError } = await supabase.from("pja_submissions").insert([
-        {
+      // 3. Upsert detailed record into pja_submissions
+      if (isSupabaseConfigured) {
+        const payload = {
           document_no: newDocNo,
           vendor_name: vendorName,
           project_name: projectName,
@@ -176,10 +303,14 @@ function PjeCreateContent() {
           notes: pjaNotes,
           due_date: parsedDueDate,
           keterangan: pjaKeteranganP7,
-        },
-      ]);
+        };
 
-      if (pjaError) throw new Error(pjaError.message);
+        const { error: pjaError } = await supabase
+          .from("pja_submissions")
+          .upsert(payload, { onConflict: "document_no" });
+
+        if (pjaError) throw new Error(pjaError.message);
+      }
 
       showToast("success", "PJA submitted successfully! Redirecting...");
       setTimeout(() => router.push("/pje"), 2000);
@@ -286,14 +417,17 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <label htmlFor="pja-vendor" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       Nama Perusahaan
                     </label>
                     <input
                       type="text"
-                      readOnly
+                      id="pja-vendor"
+                      required
+                      placeholder="Masukkan nama perusahaan..."
                       value={vendorName}
-                      className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 outline-none cursor-not-allowed font-semibold"
+                      onChange={(e) => setVendorName(e.target.value)}
+                      className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-800 outline-none shadow-sm transition-all focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 font-semibold"
                     />
                   </div>
 
@@ -313,14 +447,17 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <label htmlFor="pja-project" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       Judul Pekerjaan
                     </label>
                     <input
                       type="text"
-                      readOnly
+                      id="pja-project"
+                      required
+                      placeholder="Masukkan judul pekerjaan..."
                       value={projectName}
-                      className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 outline-none cursor-not-allowed font-semibold"
+                      onChange={(e) => setProjectName(e.target.value)}
+                      className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-800 outline-none shadow-sm transition-all focus:border-blue-500 focus:ring-1 focus:ring-blue-500/10 font-semibold"
                     />
                   </div>
 
@@ -390,35 +527,45 @@ function PjeCreateContent() {
                     <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       Document Preview (PJA)
                     </span>
-                    <div className="relative border border-slate-300 rounded-lg bg-white p-6 shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between text-slate-800 text-[8px] leading-relaxed select-none">
-                      <div className="flex items-center justify-between border-b border-blue-900 pb-2">
-                        <div className="text-left font-bold text-blue-900 text-[10px]">PERTAMINA</div>
-                        <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-PJA-02</div>
-                      </div>
-                      <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
-                        <p className="text-[9px]">Surat Keputusan PJA</p>
-                        <p className="text-[7px] text-slate-500 font-semibold">No. Kpts - PJA - 12 / 2026</p>
-                        <p className="text-[8px] tracking-tight text-blue-950 mt-1">
-                          TENTANG EVALUASI KESIAPAN PENCEGAHAN RESIKO HSSE PADA PRE JOB ASSESSMENT
-                        </p>
-                      </div>
-                      <div className="flex-1 space-y-2 py-2 text-slate-600">
-                        <p className="font-semibold text-slate-800">DIREKTUR UTAMA PT PERTAMINA (PERSERO),</p>
-                        <p className="text-[7px]">
-                          PJA wajib dilaksanakan secara seksama untuk setiap kontrak bernilai tinggi guna memitigasi
-                          keselamatan kerja pelaut dan operasional pengangkutan gas di lapangan.
-                        </p>
-                      </div>
-                      <div className="flex justify-end pt-2">
-                        <div className="text-right w-24">
-                          <p>Jakarta, 2026</p>
-                          <p className="font-bold text-slate-800">Direktur Utama</p>
-                          <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300 font-bold">
-                            Signature
+                    <div className="relative border border-slate-300 rounded-lg bg-white shadow-inner aspect-[3/4] overflow-hidden flex flex-col justify-between select-none">
+                      {pdfPreviewUrl ? (
+                        <iframe
+                          src={pdfPreviewUrl}
+                          className="w-full h-full border-0"
+                          title="Document PDF Preview"
+                        />
+                      ) : (
+                        <div className="p-6 h-full flex flex-col justify-between text-slate-850 text-[8px] leading-relaxed">
+                          <div className="flex items-center justify-between border-b border-blue-900 pb-2">
+                            <div className="text-left font-bold text-blue-900 text-[10px]">PERTAMINA</div>
+                            <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-PJA-02</div>
                           </div>
-                          <p className="font-bold text-slate-800 underline">Nicke Widyawati</p>
+                          <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
+                            <p className="text-[9px]">Surat Keputusan PJA</p>
+                            <p className="text-[7px] text-slate-500 font-semibold">No. Kpts - PJA - 12 / 2026</p>
+                            <p className="text-[8px] tracking-tight text-blue-950 mt-1">
+                              TENTANG EVALUASI KESIAPAN PENCEGAHAN RESIKO HSSE PADA PRE JOB ASSESSMENT
+                            </p>
+                          </div>
+                          <div className="flex-1 space-y-2 py-2 text-slate-600">
+                            <p className="font-semibold text-slate-800">DIREKTUR UTAMA PT PERTAMINA (PERSERO),</p>
+                            <p className="text-[7px]">
+                              PJA wajib dilaksanakan secara seksama untuk setiap kontrak bernilai tinggi guna memitigasi
+                              keselamatan kerja pelaut dan operasional pengangkutan gas di lapangan.
+                            </p>
+                          </div>
+                          <div className="flex justify-end pt-2">
+                            <div className="text-right w-24">
+                              <p>Jakarta, 2026</p>
+                              <p className="font-bold text-slate-800">Direktur Utama</p>
+                              <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300 font-bold">
+                                Signature
+                              </div>
+                              <p className="font-bold text-slate-800 underline">Nicke Widyawati</p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between shadow-sm">
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -427,14 +574,27 @@ function PjeCreateContent() {
                         </span>
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-slate-900 truncate">
-                            Pre Job Assessment Checklist.pdf
+                            {selectedDoc?.fileName || "Pre Job Assessment Checklist.pdf"}
                           </p>
-                          <p className="text-[10px] text-slate-400 font-semibold">1.2 MB</p>
+                          <p className="text-[10px] text-slate-400 font-semibold">
+                            {selectedDoc?.fileName ? "Database File" : "1.2 MB"}
+                          </p>
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={() => alert("Simulating PDF full view...")}
+                        onClick={async () => {
+                          if (selectedDoc?.filePath) {
+                            const url = await openDocument(selectedDoc.filePath);
+                            if (url) {
+                              window.open(url, "_blank");
+                            } else {
+                              alert("Failed to open file: File path not accessible.");
+                            }
+                          } else {
+                            alert("Simulating PDF full view...");
+                          }
+                        }}
                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
                       >
                         View File

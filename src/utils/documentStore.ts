@@ -383,3 +383,32 @@ export async function deleteDocument(no: number): Promise<DocumentItem[]> {
     return updated;
   }
 }
+
+export async function updateDocumentStatus(no: number, status: string): Promise<boolean> {
+  if (!isSupabaseConfigured) {
+    const current = getLocalDocuments();
+    const updated = current.map((doc) => doc.no === no ? { ...doc, status: status as any } : doc);
+    saveLocalDocuments(updated);
+    return true;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("documents")
+      .update({ status })
+      .eq("no", no);
+
+    if (error) {
+      console.warn("Failed to update status in Supabase (falling back to localStorage):", error.message);
+      const current = getLocalDocuments();
+      const updated = current.map((doc) => doc.no === no ? { ...doc, status: status as any } : doc);
+      saveLocalDocuments(updated);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error in updateDocumentStatus:", err);
+    return false;
+  }
+}
