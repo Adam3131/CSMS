@@ -3,7 +3,13 @@
 import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../../components/Sidebar";
-import { DocumentItem, getDocuments, addDocument, saveDocuments, openDocument } from "../../../utils/documentStore";
+import {
+  DocumentItem,
+  getDocuments,
+  addDocument,
+  saveDocuments,
+  openDocument,
+} from "../../../utils/documentStore";
 import { supabase, isSupabaseConfigured } from "../../../utils/supabaseClient";
 import { getCurrentUser, getRoleDetails } from "../../../utils/userStore";
 
@@ -14,7 +20,11 @@ function PjeCreateContent() {
 
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ type: "success" | "error"; message: string; visible: boolean } | null>(null);
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    message: string;
+    visible: boolean;
+  } | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
 
   // Wizard state: 1, 2, or 3
@@ -23,7 +33,9 @@ function PjeCreateContent() {
   // Form states initialized dynamically
   const [vendorName, setVendorName] = useState("");
   const [projectName, setProjectName] = useState("");
-  const [pjaBidangUsaha, setPjaBidangUsaha] = useState("Jasa Pelayaran & Pengangkutan Gas");
+  const [pjaBidangUsaha, setPjaBidangUsaha] = useState(
+    "Jasa Pelayaran & Pengangkutan Gas",
+  );
   const [evaluationDate, setEvaluationDate] = useState("");
   const [evaluatorName, setEvaluatorName] = useState("");
   const [picJabatan, setPicJabatan] = useState("");
@@ -36,7 +48,7 @@ function PjeCreateContent() {
     setIsMounted(true);
     getDocuments().then(async (docs) => {
       setDocuments(docs);
-      
+
       const docNo = searchParams.get("no");
       if (docNo) {
         const targetNo = parseInt(docNo, 10);
@@ -44,7 +56,7 @@ function PjeCreateContent() {
         if (doc) {
           setSelectedDoc(doc);
           setProjectName(doc.nama);
-          
+
           if (doc.filePath) {
             openDocument(doc.filePath).then((url) => {
               if (url) {
@@ -52,7 +64,7 @@ function PjeCreateContent() {
               }
             });
           }
-          
+
           if (isSupabaseConfigured) {
             try {
               const { data, error } = await supabase
@@ -63,8 +75,13 @@ function PjeCreateContent() {
               if (data && !error) {
                 setVendorName(data.vendor_name || "");
                 setProjectName(data.project_name || doc.nama);
-                setPjaBidangUsaha(data.bidang_usaha || "Jasa Pelayaran & Pengangkutan Gas");
-                setEvaluationDate(data.evaluation_date || new Date().toISOString().split("T")[0]);
+                setPjaBidangUsaha(
+                  data.bidang_usaha || "Jasa Pelayaran & Pengangkutan Gas",
+                );
+                setEvaluationDate(
+                  data.evaluation_date ||
+                    new Date().toISOString().split("T")[0],
+                );
                 setEvaluatorName(data.evaluator_name || "");
                 setPicJabatan(data.pic_jabatan || "");
                 setLokasiPekerjaan(data.lokasi_pekerjaan || "");
@@ -84,12 +101,14 @@ function PjeCreateContent() {
                 const locationParam = searchParams.get("location");
                 if (locationParam) setLokasiPekerjaan(locationParam);
                 setEvaluationDate(new Date().toISOString().split("T")[0]);
-                
+
                 const user = getCurrentUser();
                 if (user) {
                   setEvaluatorName(user.fullName);
                   const details = getRoleDetails(user.role);
-                  setPicJabatan(details.position || "Environmental & HSSE Governance");
+                  setPicJabatan(
+                    details.position || "Environmental & HSSE Governance",
+                  );
                 } else {
                   setEvaluatorName("PUTRI FATIMA SUNNIA");
                   setPicJabatan("Environmental & HSSE Governance");
@@ -105,12 +124,14 @@ function PjeCreateContent() {
             const locationParam = searchParams.get("location");
             if (locationParam) setLokasiPekerjaan(locationParam);
             setEvaluationDate(new Date().toISOString().split("T")[0]);
-            
+
             const user = getCurrentUser();
             if (user) {
               setEvaluatorName(user.fullName);
               const details = getRoleDetails(user.role);
-              setPicJabatan(details.position || "Environmental & HSSE Governance");
+              setPicJabatan(
+                details.position || "Environmental & HSSE Governance",
+              );
             } else {
               setEvaluatorName("PUTRI FATIMA SUNNIA");
               setPicJabatan("Environmental & HSSE Governance");
@@ -126,9 +147,9 @@ function PjeCreateContent() {
         if (companyParam) setVendorName(companyParam);
         if (projectParam) setProjectName(projectParam);
         if (locationParam) setLokasiPekerjaan(locationParam);
-        
+
         setEvaluationDate(new Date().toISOString().split("T")[0]);
-        
+
         const user = getCurrentUser();
         if (user) {
           setEvaluatorName(user.fullName);
@@ -143,7 +164,9 @@ function PjeCreateContent() {
   }, [searchParams]);
 
   // Scoring matrix answers
-  const [pjaAnswers, setPjaAnswers] = useState<Record<string, "YES" | "NO" | "NO_NEED" | null>>({
+  const [pjaAnswers, setPjaAnswers] = useState<
+    Record<string, "YES" | "NO" | "NO_NEED" | null>
+  >({
     scoreP1_1: null,
     scoreP1_2: null,
     scoreP1_3: null,
@@ -165,7 +188,10 @@ function PjeCreateContent() {
   const [pjaDueDate, setPjaDueDate] = useState("");
   const [pjaKeteranganP7, setPjaKeteranganP7] = useState("1. \n2. ");
 
-  const handlePjaAnswerChange = (key: string, val: "YES" | "NO" | "NO_NEED" | null) => {
+  const handlePjaAnswerChange = (
+    key: string,
+    val: "YES" | "NO" | "NO_NEED" | null,
+  ) => {
     setPjaAnswers((prev) => ({ ...prev, [key]: val }));
   };
 
@@ -243,7 +269,7 @@ function PjeCreateContent() {
         // Edit / Update existing document
         const targetNo = parseInt(docNo, 10);
         newDocNo = targetNo;
-        
+
         const docs = await getDocuments();
         const updated = docs.map((d) => {
           if (d.no === targetNo) {
@@ -256,13 +282,13 @@ function PjeCreateContent() {
           return d;
         });
         saveDocuments(updated);
-        
+
         if (isSupabaseConfigured) {
           await supabase
             .from("documents")
             .update({
               status: "Done",
-              nilai: calculatedScore
+              nilai: calculatedScore,
             })
             .eq("no", targetNo);
         }
@@ -316,7 +342,10 @@ function PjeCreateContent() {
       setTimeout(() => router.push("/pje"), 2000);
     } catch (err) {
       console.error("Failed to submit PJA:", err);
-      showToast("error", "Failed to save document. Please check your connection and try again.");
+      showToast(
+        "error",
+        "Failed to save document. Please check your connection and try again.",
+      );
       setIsSubmitting(false);
     }
   };
@@ -335,7 +364,11 @@ function PjeCreateContent() {
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* 1. LEFT SIDEBAR */}
-      <Sidebar currentPath="/pje/create" selectedCategory="PJA" documents={documents} />
+      <Sidebar
+        currentPath="/pje/create"
+        selectedCategory="PJA"
+        documents={documents}
+      />
 
       {/* 2. MAIN CONTENT PANEL */}
       <div className="flex flex-1 flex-col pl-72">
@@ -352,8 +385,12 @@ function PjeCreateContent() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-xs font-bold text-slate-800">PUTRI FATIMA SUNNIA</p>
-              <p className="text-[10px] font-medium text-slate-400">Environmental & HSSE Governance</p>
+              <p className="text-xs font-bold text-slate-800">
+                PUTRI FATIMA SUNNIA
+              </p>
+              <p className="text-[10px] font-medium text-slate-400">
+                Environmental & HSSE Governance
+              </p>
             </div>
             <div className="h-9 w-9 rounded-full border border-slate-200 bg-indigo-50 flex items-center justify-center font-bold text-indigo-600 text-xs shadow-inner">
               PS
@@ -376,13 +413,17 @@ function PjeCreateContent() {
                       pjaStep === s.step
                         ? "bg-blue-600 text-white shadow-sm"
                         : pjaStep > s.step
-                        ? "bg-emerald-100 text-emerald-700 font-bold"
-                        : "bg-slate-100 text-slate-400"
+                          ? "bg-emerald-100 text-emerald-700 font-bold"
+                          : "bg-slate-100 text-slate-400"
                     }`}
                   >
                     {pjaStep > s.step ? "✓" : s.step}
                   </span>
-                  <span className={pjaStep === s.step ? "text-slate-800" : "text-slate-400"}>
+                  <span
+                    className={
+                      pjaStep === s.step ? "text-slate-800" : "text-slate-400"
+                    }
+                  >
                     {s.label}
                   </span>
                 </div>
@@ -417,7 +458,10 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="pja-vendor" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <label
+                      htmlFor="pja-vendor"
+                      className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                    >
                       Nama Perusahaan
                     </label>
                     <input
@@ -432,7 +476,10 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="pja-bidang" className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider">
+                    <label
+                      htmlFor="pja-bidang"
+                      className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider"
+                    >
                       Bidang Usaha
                     </label>
                     <input
@@ -447,7 +494,10 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="pja-project" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <label
+                      htmlFor="pja-project"
+                      className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                    >
                       Judul Pekerjaan
                     </label>
                     <input
@@ -462,7 +512,10 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="pja-tgl" className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider">
+                    <label
+                      htmlFor="pja-tgl"
+                      className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider"
+                    >
                       Tanggal Verifikasi
                     </label>
                     <input
@@ -476,7 +529,10 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="pja-evaluator" className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider">
+                    <label
+                      htmlFor="pja-evaluator"
+                      className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider"
+                    >
                       Nama Evaluator
                     </label>
                     <input
@@ -491,7 +547,10 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="pja-pic" className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider">
+                    <label
+                      htmlFor="pja-pic"
+                      className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider"
+                    >
                       PIC - Jabatan
                     </label>
                     <input
@@ -506,7 +565,10 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="pja-lokasi" className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider">
+                    <label
+                      htmlFor="pja-lokasi"
+                      className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider"
+                    >
                       Lokasi Pekerjaan
                     </label>
                     <input
@@ -537,31 +599,46 @@ function PjeCreateContent() {
                       ) : (
                         <div className="p-6 h-full flex flex-col justify-between text-slate-850 text-[8px] leading-relaxed">
                           <div className="flex items-center justify-between border-b border-blue-900 pb-2">
-                            <div className="text-left font-bold text-blue-900 text-[10px]">PERTAMINA</div>
-                            <div className="text-right text-[6px] text-slate-400">No. Dok: HSE-PJA-02</div>
+                            <div className="text-left font-bold text-blue-900 text-[10px]">
+                              PERTAMINA
+                            </div>
+                            <div className="text-right text-[6px] text-slate-400">
+                              No. Dok: HSE-PJA-02
+                            </div>
                           </div>
                           <div className="text-center font-bold text-slate-900 uppercase my-3 space-y-1">
                             <p className="text-[9px]">Surat Keputusan PJA</p>
-                            <p className="text-[7px] text-slate-500 font-semibold">No. Kpts - PJA - 12 / 2026</p>
+                            <p className="text-[7px] text-slate-500 font-semibold">
+                              No. Kpts - PJA - 12 / 2026
+                            </p>
                             <p className="text-[8px] tracking-tight text-blue-950 mt-1">
-                              TENTANG EVALUASI KESIAPAN PENCEGAHAN RESIKO HSSE PADA PRE JOB ASSESSMENT
+                              TENTANG EVALUASI KESIAPAN PENCEGAHAN RESIKO HSSE
+                              PADA PRE JOB ASSESSMENT
                             </p>
                           </div>
                           <div className="flex-1 space-y-2 py-2 text-slate-600">
-                            <p className="font-semibold text-slate-800">DIREKTUR UTAMA PT PERTAMINA (PERSERO),</p>
+                            <p className="font-semibold text-slate-800">
+                              DIREKTUR UTAMA PT PERTAMINA (PERSERO),
+                            </p>
                             <p className="text-[7px]">
-                              PJA wajib dilaksanakan secara seksama untuk setiap kontrak bernilai tinggi guna memitigasi
-                              keselamatan kerja pelaut dan operasional pengangkutan gas di lapangan.
+                              PJA wajib dilaksanakan secara seksama untuk setiap
+                              kontrak bernilai tinggi guna memitigasi
+                              keselamatan kerja pelaut dan operasional
+                              pengangkutan gas di lapangan.
                             </p>
                           </div>
                           <div className="flex justify-end pt-2">
                             <div className="text-right w-24">
                               <p>Jakarta, 2026</p>
-                              <p className="font-bold text-slate-800">Direktur Utama</p>
+                              <p className="font-bold text-slate-800">
+                                Direktur Utama
+                              </p>
                               <div className="h-6 w-full flex items-center justify-center my-0.5 border border-dashed border-slate-200 text-slate-300 font-bold">
                                 Signature
                               </div>
-                              <p className="font-bold text-slate-800 underline">Nicke Widyawati</p>
+                              <p className="font-bold text-slate-800 underline">
+                                Nicke Widyawati
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -574,7 +651,8 @@ function PjeCreateContent() {
                         </span>
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-slate-900 truncate">
-                            {selectedDoc?.fileName || "Pre Job Assessment Checklist.pdf"}
+                            {selectedDoc?.fileName ||
+                              "Pre Job Assessment Checklist.pdf"}
                           </p>
                           <p className="text-[10px] text-slate-400 font-semibold">
                             {selectedDoc?.fileName ? "Database File" : "1.2 MB"}
@@ -585,11 +663,15 @@ function PjeCreateContent() {
                         type="button"
                         onClick={async () => {
                           if (selectedDoc?.filePath) {
-                            const url = await openDocument(selectedDoc.filePath);
+                            const url = await openDocument(
+                              selectedDoc.filePath,
+                            );
                             if (url) {
                               window.open(url, "_blank");
                             } else {
-                              alert("Failed to open file: File path not accessible.");
+                              alert(
+                                "Failed to open file: File path not accessible.",
+                              );
                             }
                           } else {
                             alert("Simulating PDF full view...");
@@ -687,16 +769,37 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-700">1. Keterlibatan Manajemen</p>
+                    <p className="text-xs font-bold text-slate-700">
+                      1. Keterlibatan Manajemen
+                    </p>
                     <div className="overflow-x-auto rounded-xl border border-slate-100">
                       <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
                         <thead className="bg-slate-50 font-bold text-slate-500">
                           <tr>
-                            <th scope="col" className="px-4 py-3">KOMPONEN PENILAIAN HSE PLAN</th>
-                            <th scope="col" className="px-2 py-3 w-16 text-center">YES</th>
-                            <th scope="col" className="px-2 py-3 w-16 text-center">NO</th>
-                            <th scope="col" className="px-2 py-3 w-20 text-center">NO NEED</th>
-                            <th scope="col" className="px-4 py-3 w-64">Keterangan</th>
+                            <th scope="col" className="px-4 py-3">
+                              KOMPONEN PENILAIAN HSE PLAN
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-2 py-3 w-16 text-center"
+                            >
+                              YES
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-2 py-3 w-16 text-center"
+                            >
+                              NO
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-2 py-3 w-20 text-center"
+                            >
+                              NO NEED
+                            </th>
+                            <th scope="col" className="px-4 py-3 w-64">
+                              Keterangan
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
@@ -723,7 +826,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "YES"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "YES" ? null : "YES")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "YES"
+                                        ? null
+                                        : "YES",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -733,7 +841,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "NO"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO" ? null : "NO")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "NO"
+                                        ? null
+                                        : "NO",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -743,7 +856,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "NO_NEED"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO_NEED" ? null : "NO_NEED")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "NO_NEED"
+                                        ? null
+                                        : "NO_NEED",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -753,7 +871,9 @@ function PjeCreateContent() {
                                   type="text"
                                   placeholder="Keterangan..."
                                   value={pjaNotes[row.key]}
-                                  onChange={(e) => handlePjaNoteChange(row.key, e.target.value)}
+                                  onChange={(e) =>
+                                    handlePjaNoteChange(row.key, e.target.value)
+                                  }
                                   className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1"
                                 />
                               </td>
@@ -765,7 +885,9 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-700">2. Penghargaan dan Sanksi terkait Aspek HSSE</p>
+                    <p className="text-xs font-bold text-slate-700">
+                      2. Penghargaan dan Sanksi terkait Aspek HSSE
+                    </p>
                     <div className="overflow-x-auto rounded-xl border border-slate-100">
                       <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
                         <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
@@ -784,7 +906,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "YES"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "YES" ? null : "YES")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "YES"
+                                        ? null
+                                        : "YES",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -794,7 +921,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "NO"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO" ? null : "NO")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "NO"
+                                        ? null
+                                        : "NO",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -804,7 +936,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "NO_NEED"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO_NEED" ? null : "NO_NEED")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "NO_NEED"
+                                        ? null
+                                        : "NO_NEED",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -814,17 +951,27 @@ function PjeCreateContent() {
                                   type="text"
                                   placeholder="Keterangan..."
                                   value={pjaNotes[row.key]}
-                                  onChange={(e) => handlePjaNoteChange(row.key, e.target.value)}
+                                  onChange={(e) =>
+                                    handlePjaNoteChange(row.key, e.target.value)
+                                  }
                                   className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1"
                                 />
                               </td>
                             </tr>
                           ))}
                           <tr className="bg-slate-50 font-bold">
-                            <td className="px-4 py-3.5 text-right uppercase text-slate-500">Total</td>
-                            <td className="px-2 py-3.5 text-center text-slate-900">{pjaP1Totals.yes.toFixed(2)}</td>
-                            <td className="px-2 py-3.5 text-center text-slate-900">{pjaP1Totals.no.toFixed(2)}</td>
-                            <td className="px-2 py-3.5 text-center text-slate-900">{pjaP1Totals.noNeed.toFixed(2)}</td>
+                            <td className="px-4 py-3.5 text-right uppercase text-slate-500">
+                              Total
+                            </td>
+                            <td className="px-2 py-3.5 text-center text-slate-900">
+                              {pjaP1Totals.yes.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-3.5 text-center text-slate-900">
+                              {pjaP1Totals.no.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-3.5 text-center text-slate-900">
+                              {pjaP1Totals.noNeed.toFixed(2)}
+                            </td>
                             <td className="px-4 py-3.5"></td>
                           </tr>
                         </tbody>
@@ -842,7 +989,10 @@ function PjeCreateContent() {
                     &lt; Prev
                   </button>
                   <div className="text-xs text-slate-400 font-bold">
-                    Total Score: <span className="text-blue-700 font-extrabold">{pjaTotalSemuaProses.toFixed(2)}</span>
+                    Total Score:{" "}
+                    <span className="text-blue-700 font-extrabold">
+                      {pjaTotalSemuaProses.toFixed(2)}
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -914,16 +1064,37 @@ function PjeCreateContent() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-700">1. AUDIT HSSE</p>
+                    <p className="text-xs font-bold text-slate-700">
+                      1. AUDIT HSSE
+                    </p>
                     <div className="overflow-x-auto rounded-xl border border-slate-100">
                       <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
                         <thead className="bg-slate-50 font-bold text-slate-500">
                           <tr>
-                            <th scope="col" className="px-4 py-3">KOMPONEN PENILAIAN HSE PLAN</th>
-                            <th scope="col" className="px-2 py-3 w-16 text-center">YES</th>
-                            <th scope="col" className="px-2 py-3 w-16 text-center">NO</th>
-                            <th scope="col" className="px-2 py-3 w-20 text-center">NO NEED</th>
-                            <th scope="col" className="px-4 py-3 w-64">Keterangan</th>
+                            <th scope="col" className="px-4 py-3">
+                              KOMPONEN PENILAIAN HSE PLAN
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-2 py-3 w-16 text-center"
+                            >
+                              YES
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-2 py-3 w-16 text-center"
+                            >
+                              NO
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-2 py-3 w-20 text-center"
+                            >
+                              NO NEED
+                            </th>
+                            <th scope="col" className="px-4 py-3 w-64">
+                              Keterangan
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white font-medium text-slate-700">
@@ -946,7 +1117,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "YES"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "YES" ? null : "YES")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "YES"
+                                        ? null
+                                        : "YES",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -956,7 +1132,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "NO"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO" ? null : "NO")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "NO"
+                                        ? null
+                                        : "NO",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -966,7 +1147,12 @@ function PjeCreateContent() {
                                   type="checkbox"
                                   checked={pjaAnswers[row.key] === "NO_NEED"}
                                   onChange={() =>
-                                    handlePjaAnswerChange(row.key, pjaAnswers[row.key] === "NO_NEED" ? null : "NO_NEED")
+                                    handlePjaAnswerChange(
+                                      row.key,
+                                      pjaAnswers[row.key] === "NO_NEED"
+                                        ? null
+                                        : "NO_NEED",
+                                    )
                                   }
                                   className="h-4 w-4 rounded text-blue-650 cursor-pointer"
                                 />
@@ -976,16 +1162,24 @@ function PjeCreateContent() {
                                   type="text"
                                   placeholder="Keterangan..."
                                   value={pjaNotes[row.key]}
-                                  onChange={(e) => handlePjaNoteChange(row.key, e.target.value)}
+                                  onChange={(e) =>
+                                    handlePjaNoteChange(row.key, e.target.value)
+                                  }
                                   className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-500 outline-none text-xs py-1"
                                 />
                               </td>
                             </tr>
                           ))}
                           <tr className="bg-slate-50 font-bold">
-                            <td className="px-4 py-3.5 text-right uppercase text-slate-500">Total</td>
-                            <td className="px-2 py-3.5 text-center text-slate-900">{pjaP7Totals.yes.toFixed(2)}</td>
-                            <td className="px-2 py-3.5 text-center text-slate-900">{pjaP7Totals.no.toFixed(2)}</td>
+                            <td className="px-4 py-3.5 text-right uppercase text-slate-500">
+                              Total
+                            </td>
+                            <td className="px-2 py-3.5 text-center text-slate-900">
+                              {pjaP7Totals.yes.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-3.5 text-center text-slate-900">
+                              {pjaP7Totals.no.toFixed(2)}
+                            </td>
                             <td className="px-2 py-3.5 text-center text-slate-900"></td>
                             <td className="px-4 py-3.5"></td>
                           </tr>
@@ -993,8 +1187,12 @@ function PjeCreateContent() {
                             <td className="px-4 py-3.5 text-right uppercase text-slate-500">
                               % PENCAPAIAN TOTAL NILAI PROSES
                             </td>
-                            <td className="px-2 py-3.5 text-center text-slate-900">{pjaP7Totals.yesPct}%</td>
-                            <td className="px-2 py-3.5 text-center text-slate-900">{pjaP7Totals.noPct}%</td>
+                            <td className="px-2 py-3.5 text-center text-slate-900">
+                              {pjaP7Totals.yesPct}%
+                            </td>
+                            <td className="px-2 py-3.5 text-center text-slate-900">
+                              {pjaP7Totals.noPct}%
+                            </td>
                             <td className="px-2 py-3.5 text-center text-slate-900"></td>
                             <td className="px-4 py-3.5"></td>
                           </tr>
@@ -1024,7 +1222,7 @@ function PjeCreateContent() {
                       </tr>
                       <tr>
                         <td className="px-4 py-3.5 text-slate-800 bg-slate-50 w-48 uppercase tracking-wider align-top pt-3">
-                          Keterangan
+                          Rekomendasi
                         </td>
                         <td className="px-4 py-2">
                           <textarea
@@ -1050,7 +1248,10 @@ function PjeCreateContent() {
                     &lt; Prev
                   </button>
                   <div className="text-xs text-slate-400 font-bold">
-                    Total Score: <span className="text-blue-700 font-extrabold">{pjaTotalSemuaProses.toFixed(2)}</span>
+                    Total Score:{" "}
+                    <span className="text-blue-700 font-extrabold">
+                      {pjaTotalSemuaProses.toFixed(2)}
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -1060,9 +1261,24 @@ function PjeCreateContent() {
                   >
                     {isSubmitting ? (
                       <>
-                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        <svg
+                          className="h-4 w-4 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
                         </svg>
                         Saving...
                       </>
@@ -1081,24 +1297,51 @@ function PjeCreateContent() {
       {toast && (
         <div
           className={`fixed bottom-6 right-6 z-50 flex items-start gap-4 rounded-2xl px-5 py-4 shadow-2xl transition-all duration-500
-            ${toast.type === "success"
-              ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
-              : "bg-gradient-to-br from-red-500 to-rose-600 text-white"
+            ${
+              toast.type === "success"
+                ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
+                : "bg-gradient-to-br from-red-500 to-rose-600 text-white"
             }`}
-          style={{ minWidth: "320px", maxWidth: "420px", animation: "slideInUp 0.4s cubic-bezier(0.16,1,0.3,1)" }}
+          style={{
+            minWidth: "320px",
+            maxWidth: "420px",
+            animation: "slideInUp 0.4s cubic-bezier(0.16,1,0.3,1)",
+          }}
           role="alert"
         >
           {/* Icon */}
-          <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-            toast.type === "success" ? "bg-white/20" : "bg-white/20"
-          }`}>
+          <div
+            className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+              toast.type === "success" ? "bg-white/20" : "bg-white/20"
+            }`}
+          >
             {toast.type === "success" ? (
-              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              <svg
+                className="h-5 w-5 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             ) : (
-              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <svg
+                className="h-5 w-5 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                />
               </svg>
             )}
           </div>
@@ -1106,7 +1349,9 @@ function PjeCreateContent() {
           {/* Text */}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold leading-snug">
-              {toast.type === "success" ? "Submission Successful" : "Submission Failed"}
+              {toast.type === "success"
+                ? "Submission Successful"
+                : "Submission Failed"}
             </p>
             <p className="mt-0.5 text-xs font-medium text-white/80 leading-relaxed">
               {toast.message}
@@ -1128,8 +1373,18 @@ function PjeCreateContent() {
             className="mt-0.5 shrink-0 rounded-lg p-1 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             aria-label="Dismiss"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
