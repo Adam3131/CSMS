@@ -87,7 +87,17 @@ function PjeCreateContent() {
                 setLokasiPekerjaan(data.lokasi_pekerjaan || "");
                 if (data.answers) setPjaAnswers(data.answers);
                 if (data.notes) setPjaNotes(data.notes);
-                if (data.keterangan) setPjaKeteranganP7(data.keterangan);
+                if (data.findings !== undefined && data.findings !== null) {
+                  setPjaFindings(data.findings);
+                } else if (data.keterangan) {
+                  setPjaFindings(data.keterangan);
+                }
+                if (data.recommendation !== undefined && data.recommendation !== null) {
+                  setPjaRecommendation(data.recommendation);
+                }
+                if (data.status) {
+                  setPjaStatus(data.status === "close" ? "close" : "open");
+                }
                 if (data.due_date) {
                   const parts = data.due_date.split("-");
                   if (parts.length === 3) {
@@ -186,7 +196,9 @@ function PjeCreateContent() {
   });
 
   const [pjaDueDate, setPjaDueDate] = useState("");
-  const [pjaKeteranganP7, setPjaKeteranganP7] = useState("1. \n2. ");
+  const [pjaFindings, setPjaFindings] = useState("1. \n2. ");
+  const [pjaRecommendation, setPjaRecommendation] = useState("1. \n2. ");
+  const [pjaStatus, setPjaStatus] = useState<"open" | "close">("open");
 
   const handlePjaAnswerChange = (
     key: string,
@@ -328,7 +340,9 @@ function PjeCreateContent() {
           answers: pjaAnswers,
           notes: pjaNotes,
           due_date: parsedDueDate,
-          keterangan: pjaKeteranganP7,
+          findings: pjaFindings,
+          recommendation: pjaRecommendation,
+          status: pjaStatus,
         };
 
         const { error: pjaError } = await supabase
@@ -1202,36 +1216,53 @@ function PjeCreateContent() {
                   </div>
                 </div>
 
-                {/* Due Date & Keterangan Card */}
-                <div className="overflow-x-auto rounded-xl border border-slate-200 mt-4">
-                  <table className="min-w-full divide-y divide-slate-200 text-left text-xs font-semibold">
-                    <tbody className="divide-y divide-slate-200 bg-white text-slate-700">
+                {/* Findings, Recommendation, and Status Card */}
+                <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <table className="min-w-full border-collapse text-left text-xs font-semibold">
+                    <thead className="bg-slate-50 text-slate-700">
                       <tr>
-                        <td className="px-4 py-3.5 text-slate-800 bg-slate-50 w-48 uppercase tracking-wider">
-                          Due Date
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="text"
-                            placeholder="DD/MM/YYYY"
-                            value={pjaDueDate}
-                            onChange={(e) => setPjaDueDate(e.target.value)}
-                            className="w-full bg-transparent outline-none text-xs py-1 font-semibold text-slate-800"
-                          />
-                        </td>
+                        <th className="border border-slate-200 px-4 py-3 text-left uppercase tracking-wider w-1/3">
+                          Findings
+                        </th>
+                        <th className="border border-slate-200 px-4 py-3 text-left uppercase tracking-wider w-1/3">
+                          Recommendation
+                        </th>
+                        <th className="border border-slate-200 px-4 py-3 text-left uppercase tracking-wider w-1/4">
+                          Status
+                        </th>
                       </tr>
+                    </thead>
+                    <tbody className="bg-white text-slate-700">
                       <tr>
-                        <td className="px-4 py-3.5 text-slate-800 bg-slate-50 w-48 uppercase tracking-wider align-top pt-3">
-                          Rekomendasi
-                        </td>
-                        <td className="px-4 py-2">
+                        <td className="border border-slate-200 px-4 py-2 align-top">
                           <textarea
-                            rows={4}
-                            value={pjaKeteranganP7}
-                            onChange={(e) => setPjaKeteranganP7(e.target.value)}
+                            rows={5}
+                            value={pjaFindings}
+                            onChange={(e) => setPjaFindings(e.target.value)}
                             className="w-full bg-transparent outline-none text-xs py-1 resize-none font-medium text-slate-700 leading-relaxed"
                             placeholder="1.&#10;2."
                           />
+                        </td>
+                        <td className="border border-slate-200 px-4 py-2 align-top">
+                          <textarea
+                            rows={5}
+                            value={pjaRecommendation}
+                            onChange={(e) => setPjaRecommendation(e.target.value)}
+                            className="w-full bg-transparent outline-none text-xs py-1 resize-none font-medium text-slate-700 leading-relaxed"
+                            placeholder="1.&#10;2."
+                          />
+                        </td>
+                        <td className="border border-slate-200 px-4 py-2 align-top">
+                          <select
+                            value={pjaStatus}
+                            onChange={(e) =>
+                              setPjaStatus(e.target.value === "close" ? "close" : "open")
+                            }
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                          >
+                            <option value="open">Open</option>
+                            <option value="close">Close</option>
+                          </select>
                         </td>
                       </tr>
                     </tbody>

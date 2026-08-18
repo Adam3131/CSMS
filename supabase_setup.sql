@@ -199,7 +199,9 @@ create table if not exists public.pja_submissions (
     answers jsonb, -- Storing YES/NO/NO_NEED questionnaires in JSON
     notes jsonb, -- Storing notes for each question
     due_date date,
-    keterangan text,
+    findings text,
+    recommendation text,
+    status text not null default 'open' check (status in ('open', 'close')),
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
