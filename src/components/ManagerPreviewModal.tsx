@@ -102,7 +102,9 @@ export default function ManagerPreviewModal({ isOpen, onClose, document, onStatu
               scoreP7_2: "Rencana mitigasi belum mencakup resiko tumpahan minyak."
             },
             due_date: "2026-10-15",
-            keterangan: "1. Pastikan HSE officer ditunjuk sebelum kick-off.\n2. Lengkapi mitigasi resiko tumpahan minyak."
+            findings: "1. Pastikan HSE officer ditunjuk sebelum kick-off.\n2. Lengkapi mitigasi resiko tumpahan minyak.",
+            recommendation: "1. Lakukan penunjukan HSE officer sebelum kick-off.\n2. Tambahkan mitigasi resiko tumpahan minyak ke check list kerja.",
+            status: "open"
           },
           "WIP": {
             nama_perusahaan: "PT Warna SeBahtera",
@@ -351,18 +353,32 @@ export default function ManagerPreviewModal({ isOpen, onClose, document, onStatu
                     </div>
                   </div>
 
-                  {(data.due_date || data.keterangan) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-700">
-                      {data.due_date && (
+                  {(data.findings || data.recommendation || data.status || data.due_date) && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-700">
+                      {data.findings && (
                         <div>
-                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rencana Kerja Due Date</span>
-                          <span>{data.due_date}</span>
+                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Findings</span>
+                          <span className="block text-slate-500 whitespace-pre-line font-medium leading-relaxed">{data.findings}</span>
                         </div>
                       )}
-                      {data.keterangan && (
+                      {data.recommendation && (
                         <div>
-                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Catatan Tambahan</span>
-                          <span className="block text-slate-500 whitespace-pre-line font-medium leading-relaxed">{data.keterangan}</span>
+                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Recommendation</span>
+                          <span className="block text-slate-500 whitespace-pre-line font-medium leading-relaxed">{data.recommendation}</span>
+                        </div>
+                      )}
+                      {(data.status || data.due_date) && (
+                        <div>
+                          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</span>
+                          <span className="inline-flex rounded-full px-2 py-1 text-[9px] font-bold border bg-slate-50 text-slate-700 border-slate-200">
+                            {data.status || "open"}
+                          </span>
+                          {data.due_date && (
+                            <div className="mt-2">
+                              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Due Date</span>
+                              <span>{data.due_date}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -147,7 +147,9 @@ export default function PjeLandingPage() {
               scoreP7_2: "Rencana perbaikan belum ada",
             },
             due_date: "2024-03-31",
-            keterangan: "Review compliance documents complete.",
+            findings: "Review compliance documents complete.",
+            recommendation: "Follow up on corrective actions before final closure.",
+            status: "open",
           });
         }
       } catch (err) {
@@ -181,7 +183,9 @@ export default function PjeLandingPage() {
           scoreP7_2: "Rencana perbaikan belum ada",
         },
         due_date: "2024-03-31",
-        keterangan: "Review compliance documents complete.",
+        findings: "Review compliance documents complete.",
+        recommendation: "Follow up on corrective actions before final closure.",
+        status: "open",
       });
       setIsPreviewLoading(false);
     }
@@ -618,21 +622,45 @@ export default function PjeLandingPage() {
                       </div>
                     </div>
 
-                    {/* Additional Notes */}
-                    {(previewData.due_date || previewData.keterangan) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
-                        {previewData.due_date && (
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Due Date Rencana Kerja</p>
-                            <p className="font-semibold text-slate-750 mt-1 text-left">{previewData.due_date}</p>
-                          </div>
-                        )}
-                        {previewData.keterangan && (
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left">Keterangan / Catatan Evaluator</p>
-                            <p className="font-medium text-slate-700 whitespace-pre-line mt-1 text-left">{previewData.keterangan}</p>
-                          </div>
-                        )}
+                    {/* Findings / Recommendation / Status */}
+                    {(previewData.findings || previewData.recommendation || previewData.status || previewData.keterangan || previewData.due_date) && (
+                      <div className="space-y-3 border-t border-slate-100 pt-4">
+                        <div className="overflow-hidden rounded-xl border border-slate-200">
+                          <table className="min-w-full border-collapse text-left text-xs font-medium">
+                            <thead className="bg-slate-50 text-slate-700">
+                              <tr>
+                                <th className="border border-slate-200 px-3 py-2 text-left font-bold uppercase tracking-wider">Findings</th>
+                                <th className="border border-slate-200 px-3 py-2 text-left font-bold uppercase tracking-wider">Recommendation</th>
+                                <th className="border border-slate-200 px-3 py-2 text-left font-bold uppercase tracking-wider w-32">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white text-slate-700">
+                              <tr>
+                                <td className="border border-slate-200 px-3 py-3 align-top whitespace-pre-line">
+                                  {previewData.findings || previewData.keterangan || "-"}
+                                </td>
+                                <td className="border border-slate-200 px-3 py-3 align-top whitespace-pre-line">
+                                  {previewData.recommendation || "-"}
+                                </td>
+                                <td className="border border-slate-200 px-3 py-3 align-top">
+                                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase border ${
+                                    (previewData.status || "open") === "close"
+                                      ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                      : "bg-amber-50 text-amber-600 border-amber-100"
+                                  }`}>
+                                    {previewData.status || "open"}
+                                  </span>
+                                  {previewData.due_date && (
+                                    <div className="mt-3 text-[10px] text-slate-500">
+                                      <p className="font-bold uppercase tracking-wider text-slate-400 mb-1">Due Date</p>
+                                      <p>{previewData.due_date}</p>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                   </div>
