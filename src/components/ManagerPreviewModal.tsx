@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../utils/supabaseClient";
+import { updateDocumentStatus } from "../utils/documentStore";
 
 interface ManagerPreviewModalProps {
   isOpen: boolean;
@@ -12,15 +13,26 @@ interface ManagerPreviewModalProps {
     type: "HSE Plan" | "PJA" | "WIP" | "FE";
     status: string;
   } | null;
+  onStatusUpdated?: () => void;
 }
 
-export default function ManagerPreviewModal({ isOpen, onClose, document }: ManagerPreviewModalProps) {
+export default function ManagerPreviewModal({ isOpen, onClose, document, onStatusUpdated }: ManagerPreviewModalProps) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
+
+  // Decision state variables
+  const [isRevisionMode, setIsRevisionMode] = useState(false);
+  const [remarks, setRemarks] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !document) {
       setData(null);
+      setIsRevisionMode(false);
+      setRemarks("");
+      setIsSubmitting(false);
+      setErrorMsg(null);
       return;
     }
 
@@ -147,6 +159,46 @@ export default function ManagerPreviewModal({ isOpen, onClose, document }: Manag
 
     fetchData();
   }, [isOpen, document]);
+
+  const handleApprove = async () => {
+    if (!document) return;
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    try {
+      const success = await updateDocumentStatus(document.no, "Approved", "Disetujui oleh Manajer HSSE");
+      if (success) {
+        if (onStatusUpdated) onStatusUpdated();
+        onClose();
+      } else {
+        setErrorMsg("Gagal menyetujui dokumen. Silakan coba lagi.");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Terjadi kesalahan sistem.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSendRevision = async () => {
+    if (!document || !remarks.trim()) return;
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    try {
+      const success = await updateDocumentStatus(document.no, "Need Revision", remarks.trim());
+      if (success) {
+        if (onStatusUpdated) onStatusUpdated();
+        onClose();
+      } else {
+        setErrorMsg("Gagal mengirim catatan revisi. Silakan coba lagi.");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Terjadi kesalahan sistem.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!isOpen || !document) return null;
 
@@ -436,10 +488,84 @@ export default function ManagerPreviewModal({ isOpen, onClose, document }: Manag
 
                   <div className="space-y-2">
                     <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rekomendasi Penutupan Kontrak</span>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 font-semibold text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    <div className="bg-slate-55 border border-slate-200 rounded-xl p-4 font-semibold text-slate-700 leading-relaxed whitespace-pre-wrap">
                       {data.rekomendasi_close || "-"}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Seksi Aksi Keputusan Manajer */}
+              {(document.status === "Done") && (
+                <div className="mt-6 border-t border-slate-105 pt-6 space-y-4 text-left">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Keputusan Manajer HSSE</h4>
+                  
+                  {isRevisionMode ? (
+                    <div className="space-y-3 p-4 rounded-2xl border border-rose-100 bg-rose-50/10 transition-all">
+                      <label className="block text-xs font-bold text-slate-700">
+                        Catatan Perbaikan (Remarks) <span className="text-rose-550">*</span>
+                      </label>
+                      <textarea
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                        placeholder="Masukkan catatan detail perbaikan dokumen yang diperlukan..."
+                        className="w-full rounded-xl border border-slate-200 p-3 text-xs focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 outline-none font-medium text-slate-700 bg-white transition-all min-h-[90px]"
+                        required
+                      />
+                      {errorMsg && (
+                        <p className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                          {errorMsg}
+                        </p>
+                      )}
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsRevisionMode(false);
+                            setRemarks("");
+                            setErrorMsg(null);
+                          }}
+                          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSendRevision}
+                          disabled={isSubmitting || !remarks.trim()}
+                          className="rounded-xl bg-rose-600 text-white px-5 py-2 text-xs font-bold hover:bg-rose-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-rose-500/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSubmitting ? "Mengirim..." : "Kirim Catatan Revisi"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={handleApprove}
+                        disabled={isSubmitting}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white px-5 py-2.5 text-xs font-bold hover:bg-emerald-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-emerald-500/15 disabled:opacity-50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Setujui (Approve)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsRevisionMode(true)}
+                        disabled={isSubmitting}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 text-white px-5 py-2.5 text-xs font-bold hover:bg-amber-600 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-amber-500/15 disabled:opacity-50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Minta Revisi
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

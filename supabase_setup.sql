@@ -43,8 +43,12 @@ create table if not exists public.documents (
     type text not null check (type in ('HSE Plan', 'PJA', 'WIP', 'FE')),
     file_name text null,
     file_path text null,
-    nilai varchar(50) null -- optional rating/score
+    nilai varchar(50) null, -- optional rating/score
+    remarks text null
 );
+
+-- Migration query to add remarks to public.documents if it already exists
+alter table public.documents add column if not exists remarks text;
 
 -- Enable RLS for documents
 alter table public.documents enable row level security;

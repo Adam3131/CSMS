@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { uploadDocumentFile, addDocument, insertDocumentRecord, openDocument, getDocuments, saveDocuments } from "../../utils/documentStore";
+import { uploadDocumentFile, addDocument, insertDocumentRecord, openDocument, getDocuments, saveDocuments, updateDocumentStatus } from "../../utils/documentStore";
 import { getCurrentUser, logout, getRoleDetails } from "../../utils/userStore";
 import { supabase, isSupabaseConfigured } from "../../utils/supabaseClient";
 import ManagerPreviewModal from "../../components/ManagerPreviewModal";
@@ -48,6 +48,19 @@ export default function ManagerDashboard() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+
+  // Manager dashboard actions state
+  const [isWipRevisionMode, setIsWipRevisionMode] = useState(false);
+  const [wipRemarks, setWipRemarks] = useState("");
+  const [isWipSubmitting, setIsWipSubmitting] = useState(false);
+  const [wipErrorMsg, setWipErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsWipRevisionMode(false);
+    setWipRemarks("");
+    setWipErrorMsg(null);
+    setIsWipSubmitting(false);
+  }, [selectedProcurement]);
 
   const [currentUser, setCurrentUser] = useState<any>({
     email: "",
@@ -180,6 +193,7 @@ export default function ManagerDashboard() {
         date: doc.added,
         fileName: doc.fileName || null,
         filePath: doc.filePath || null,
+        remarks: doc.remarks || null,
       };
     });
   }, [dbDocuments]);
@@ -238,7 +252,7 @@ export default function ManagerDashboard() {
   }, [uploadedDocs]);
 
   // Helper to dynamically get timeline progress and comments based on the selected procurement status
-  const getTimelineAndComment = (status: string, lastUpdateDate: string) => {
+  const getTimelineAndComment = (status: string, lastUpdateDate: string, customRemarks?: string | null) => {
     switch (status) {
       case "On Review by PIC":
         return {
@@ -253,7 +267,7 @@ export default function ManagerDashboard() {
         };
       case "Approved":
         return {
-          comment: "Seluruh kriteria penilaian HSSE telah terpenuhi. Pengadaan disetujui.",
+          comment: customRemarks || "Seluruh kriteria penilaian HSSE telah terpenuhi. Pengadaan disetujui.",
           commentMeta: `Manajer HSSE • ${lastUpdateDate} 14:20 WIB`,
           steps: [
             { title: "Submitted", desc: "Dokumen berhasil dikirim", date: "02 Feb 2026 09:00 WIB", status: "completed" },
@@ -264,12 +278,45 @@ export default function ManagerDashboard() {
         };
       case "Need Revision":
         return {
-          comment: "Catatan PJA belum lengkap pada lampiran checklist. Harap lengkapi berkas.",
-          commentMeta: `PIC HSSE • ${lastUpdateDate} 16:30 WIB`,
+          comment: customRemarks || "Catatan PJA belum lengkap pada lampiran checklist. Harap lengkapi berkas.",
+          commentMeta: customRemarks ? `Manajer HSSE • ${lastUpdateDate} 16:30 WIB` : `PIC HSSE • ${lastUpdateDate} 16:30 WIB`,
           steps: [
             { title: "Submitted", desc: "Dokumen berhasil dikirim", date: "28 Jan 2026 14:00 WIB", status: "completed" },
             { title: "Under Review by PIC", desc: "Dokumen sedang dalam proses penilaian oleh PIC", date: "30 Jan 2026 10:00 WIB", status: "completed" },
             { title: "Need Revision", desc: "Dokumen perlu diperbaiki sesuai catatan", date: `${lastUpdateDate} 16:30 WIB`, status: "active" },
+            { title: "Approved", desc: "Dokumen disetujui", date: "-", status: "pending" },
+          ]
+        };
+      case "Done":
+        return {
+          comment: "Penilaian HSSE selesai. Menunggu persetujuan Manajer HSSE.",
+          commentMeta: `PIC HSSE • ${lastUpdateDate} 10:00 WIB`,
+          steps: [
+            { title: "Submitted", desc: "Dokumen berhasil dikirim", date: "02 Feb 2026 09:00 WIB", status: "completed" },
+            { title: "Under Review by PIC", desc: "Dokumen sedang dalam proses penilaian oleh PIC", date: "04 Feb 2026 11:30 WIB", status: "completed" },
+            { title: "Need Revision", desc: "Dokumen perlu diperbaiki sesuai catatan", date: "Tidak ada temuan", status: "completed" },
+            { title: "Approved", desc: "Menunggu persetujuan Manajer HSSE", date: "-", status: "active" },
+          ]
+        };
+      case "New":
+        return {
+          comment: "Pengadaan baru dibuat. Menunggu dokumen dari petugas.",
+          commentMeta: `Sistem • ${lastUpdateDate} 08:00 WIB`,
+          steps: [
+            { title: "Submitted", desc: "Menunggu penyerahan dokumen", date: "-", status: "active" },
+            { title: "Under Review by PIC", desc: "Dokumen sedang dalam proses penilaian oleh PIC", date: "-", status: "pending" },
+            { title: "Need Revision", desc: "Dokumen perlu diperbaiki sesuai catatan", date: "-", status: "pending" },
+            { title: "Approved", desc: "Dokumen disetujui", date: "-", status: "pending" },
+          ]
+        };
+      case "On Progress":
+        return {
+          comment: "Dokumen sedang dalam proses perbaikan atau verifikasi berkas.",
+          commentMeta: `Sistem • ${lastUpdateDate} 09:00 WIB`,
+          steps: [
+            { title: "Submitted", desc: "Dokumen berhasil dikirim", date: `${lastUpdateDate} 09:00 WIB`, status: "completed" },
+            { title: "Under Review by PIC", desc: "Dokumen sedang dalam proses penilaian oleh PIC", date: "-", status: "active" },
+            { title: "Need Revision", desc: "Dokumen perlu diperbaiki sesuai catatan", date: "-", status: "pending" },
             { title: "Approved", desc: "Dokumen disetujui", date: "-", status: "pending" },
           ]
         };
@@ -300,13 +347,15 @@ export default function ManagerDashboard() {
       progress: 0,
       progressColor: "bg-slate-300",
       date: "-",
+      remarks: null,
     };
 
   const selectedDoc = dbDocuments.find((d) => d.nama === selectedProcurement);
 
   const { comment, commentMeta, steps: timelineSteps } = getTimelineAndComment(
     currentProcurement.status,
-    currentProcurement.date
+    currentProcurement.date,
+    currentProcurement.remarks
   );
 
   // Filtering logic for the main table
@@ -331,6 +380,48 @@ export default function ManagerDashboard() {
   const showToast = (type: "success" | "error", title: string, message: string) => {
     setToast({ type, title, message, visible: true });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleWipApprove = async () => {
+    if (!currentProcurement || currentProcurement.id === 0) return;
+    setIsWipSubmitting(true);
+    setWipErrorMsg(null);
+    try {
+      const success = await updateDocumentStatus(currentProcurement.id, "Approved", "Disetujui oleh Manajer HSSE");
+      if (success) {
+        showToast("success", "Persetujuan Berhasil", "Pengadaan telah disetujui.");
+        await loadDBDocuments();
+      } else {
+        setWipErrorMsg("Gagal menyetujui dokumen.");
+      }
+    } catch (err) {
+      console.error(err);
+      setWipErrorMsg("Terjadi kesalahan.");
+    } finally {
+      setIsWipSubmitting(false);
+    }
+  };
+
+  const handleWipSendRevision = async () => {
+    if (!currentProcurement || currentProcurement.id === 0 || !wipRemarks.trim()) return;
+    setIsWipSubmitting(true);
+    setWipErrorMsg(null);
+    try {
+      const success = await updateDocumentStatus(currentProcurement.id, "Need Revision", wipRemarks.trim());
+      if (success) {
+        showToast("success", "Revisi Dikirim", "Catatan revisi telah dikirim ke petugas.");
+        setIsWipRevisionMode(false);
+        setWipRemarks("");
+        await loadDBDocuments();
+      } else {
+        setWipErrorMsg("Gagal mengirim catatan revisi.");
+      }
+    } catch (err) {
+      console.error(err);
+      setWipErrorMsg("Terjadi kesalahan.");
+    } finally {
+      setIsWipSubmitting(false);
+    }
   };
 
   // Handle native file selection
@@ -836,6 +927,75 @@ export default function ManagerDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Manager Actions Section */}
+              {(currentProcurement.status === "Done") && (
+                <div className="mt-6 border-t border-slate-105 pt-5 space-y-3.5 text-left">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Keputusan Manajer HSSE
+                  </span>
+                  
+                  {isWipRevisionMode ? (
+                    <div className="space-y-3 p-4 rounded-xl border border-rose-100 bg-rose-50/10">
+                      <label className="block text-[11px] font-bold text-slate-700">Catatan Perbaikan (Remarks) <span className="text-rose-550">*</span></label>
+                      <textarea
+                        value={wipRemarks}
+                        onChange={(e) => setWipRemarks(e.target.value)}
+                        placeholder="Masukkan catatan perbaikan yang diperlukan..."
+                        className="w-full rounded-xl border border-slate-200 p-2.5 text-xs focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 outline-none font-medium text-slate-700 bg-white transition-all min-h-[80px]"
+                        required
+                      />
+                      {wipErrorMsg && <p className="text-[10px] font-bold text-rose-650 bg-rose-50 border border-rose-100 rounded-lg px-3 py-1.5">{wipErrorMsg}</p>}
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsWipRevisionMode(false);
+                            setWipRemarks("");
+                            setWipErrorMsg(null);
+                          }}
+                          className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-505 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleWipSendRevision}
+                          disabled={isWipSubmitting || !wipRemarks.trim()}
+                          className="rounded-xl bg-rose-600 text-white px-4.5 py-1.5 text-xs font-bold hover:bg-rose-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-rose-500/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isWipSubmitting ? "Mengirim..." : "Kirim Revisi"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={handleWipApprove}
+                        disabled={isWipSubmitting}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white py-2.5 text-xs font-bold hover:bg-emerald-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-emerald-500/15 disabled:opacity-50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsWipRevisionMode(true)}
+                        disabled={isWipSubmitting}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 text-white py-2.5 text-xs font-bold hover:bg-amber-600 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-amber-500/15 disabled:opacity-50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Need Revision
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Ringkasan Progress Card */}
@@ -1568,6 +1728,7 @@ export default function ManagerDashboard() {
         isOpen={isManagerPreviewOpen}
         onClose={() => setIsManagerPreviewOpen(false)}
         document={managerPreviewDoc}
+        onStatusUpdated={loadDBDocuments}
       />
     </>
   );

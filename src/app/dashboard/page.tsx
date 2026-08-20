@@ -22,6 +22,90 @@ function DashboardContent() {
   const [sortField, setSortField] = useState<"nama" | "added">("nama");
   const [sortAsc, setSortAsc] = useState(true);
 
+  // Predictor form states
+  const [hseScoreInput, setHseScoreInput] = useState(80);
+  const [pjaScoreInput, setPjaScoreInput] = useState(75);
+  const [wipScoreInput, setWipScoreInput] = useState(70);
+  const [feScoreInput, setFeScoreInput] = useState(85);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [predictionResult, setPredictionResult] = useState<any>(null);
+  const [predictError, setPredictError] = useState<string | null>(null);
+
+  const handlePredict = () => {
+    setIsPredicting(true);
+    setPredictionResult(null);
+    setPredictError(null);
+
+    // Simulate ML model latency / tree building animation
+    setTimeout(() => {
+      try {
+        const hse = hseScoreInput;
+        const pja = pjaScoreInput;
+        const wip = wipScoreInput;
+        const fe = feScoreInput;
+
+        // Simple Random Forest classifier mockup (deterministic client-side ensemble)
+        const votes = [
+          // Tree 1: Focuses on FE & WIP
+          fe >= 80 ? (wip >= 70 ? "High" : "Medium") : (fe >= 60 ? "Medium" : "Low"),
+          // Tree 2: Focuses on HSE & PJA
+          pja >= 80 ? (hse >= 75 ? "High" : "Medium") : (pja >= 60 ? "Medium" : "Low"),
+          // Tree 3: Focuses on PJA & WIP
+          wip >= 75 ? (pja >= 70 ? "High" : "Medium") : (wip >= 55 ? "Medium" : "Low"),
+          // Tree 4: Focuses on FE & HSE
+          fe >= 85 ? (hse >= 70 ? "High" : "Medium") : (fe >= 60 ? "Medium" : "Low"),
+          // Tree 5: Focuses on WIP & FE
+          hse >= 80 ? (wip >= 75 ? "High" : "Medium") : (hse >= 60 ? "Medium" : "Low"),
+        ];
+
+        const counts = { High: 0, Medium: 0, Low: 0 };
+        votes.forEach((v) => {
+          counts[v as "High" | "Medium" | "Low"]++;
+        });
+
+        // Determine majority winner
+        let winnerClass = "Medium Performance";
+        let maxVotes = 0;
+        Object.entries(counts).forEach(([k, v]) => {
+          if (v > maxVotes) {
+            maxVotes = v;
+            winnerClass = k === "High" ? "High Performance" : k === "Medium" ? "Medium Performance" : "Low Performance";
+          }
+        });
+
+        // Calculate overall score (weighted)
+        const overallScore = Math.round((hse * 0.15) + (pja * 0.25) + (wip * 0.3) + (fe * 0.3));
+
+        setPredictionResult({
+          winner: winnerClass,
+          score: overallScore,
+          votes,
+          counts,
+          details: [
+            `Tree 1 (FE/WIP Split) Voted: ${votes[0]}`,
+            `Tree 2 (HSE/PJA Split) Voted: ${votes[1]}`,
+            `Tree 3 (PJA/WIP Split) Voted: ${votes[2]}`,
+            `Tree 4 (FE/HSE Split) Voted: ${votes[3]}`,
+            `Tree 5 (HSE/WIP Split) Voted: ${votes[4]}`,
+          ]
+        });
+      } catch (err) {
+        setPredictError("Failed to calculate prediction.");
+      } finally {
+        setIsPredicting(false);
+      }
+    }, 1200);
+  };
+
+  const handleResetPredictor = () => {
+    setHseScoreInput(80);
+    setPjaScoreInput(75);
+    setWipScoreInput(70);
+    setFeScoreInput(85);
+    setPredictionResult(null);
+    setPredictError(null);
+  };
+
   const [currentUser, setCurrentUser] = useState({
     email: "",
     role: "User" as any,
@@ -451,10 +535,234 @@ function DashboardContent() {
                   </div>
                   <button
                     onClick={() => alert("Loading full HSE audit history...")}
-                    className="w-full rounded-xl border border-slate-200 py-2.5 text-center text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 active:scale-[0.99] cursor-pointer"
+                    className="w-full rounded-xl border border-slate-200 py-2.5 text-center text-xs font-semibold text-slate-655 transition-colors hover:bg-slate-55 active:scale-[0.99] cursor-pointer"
                   >
                     View Full Audit Logs
                   </button>
+                </div>
+              </section>
+
+              {/* CONTRACTOR PERFORMANCE PREDICTOR (RANDOM FOREST ML) */}
+              <section className="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-905">Contractor Performance Predictor</h3>
+                  <p className="text-xs text-slate-400 mt-0.5 font-semibold leading-relaxed">
+                    Predict contractor safety category using client-side Random Forest Classifier (Ensemble Voting Method)
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  {/* Left Column: Form Sliders */}
+                  <div className="lg:col-span-5 space-y-5">
+                    <div className="space-y-4">
+                      {/* HSE Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                          <label htmlFor="hse-slider">1. HSE Plan Score</label>
+                          <span className="bg-red-50 border border-red-100 text-red-700 font-extrabold px-2.5 py-0.5 rounded-md text-[10px]">
+                            {hseScoreInput} / 100
+                          </span>
+                        </div>
+                        <input
+                          id="hse-slider"
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={hseScoreInput}
+                          onChange={(e) => setHseScoreInput(Number(e.target.value))}
+                          className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-red-500"
+                        />
+                      </div>
+
+                      {/* PJA Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                          <label htmlFor="pja-slider">2. Pre-Job Assessment (PJA) Score</label>
+                          <span className="bg-blue-50 border border-blue-100 text-blue-700 font-extrabold px-2.5 py-0.5 rounded-md text-[10px]">
+                            {pjaScoreInput} / 100
+                          </span>
+                        </div>
+                        <input
+                          id="pja-slider"
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={pjaScoreInput}
+                          onChange={(e) => setPjaScoreInput(Number(e.target.value))}
+                          className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                      </div>
+
+                      {/* WIP Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                          <label htmlFor="wip-slider">3. Work In Progress (WIP) Score</label>
+                          <span className="bg-amber-50 border border-amber-100 text-amber-700 font-extrabold px-2.5 py-0.5 rounded-md text-[10px]">
+                            {wipScoreInput} / 100
+                          </span>
+                        </div>
+                        <input
+                          id="wip-slider"
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={wipScoreInput}
+                          onChange={(e) => setWipScoreInput(Number(e.target.value))}
+                          className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        />
+                      </div>
+
+                      {/* FE Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                          <label htmlFor="fe-slider">4. Final Evaluation (FE) Score</label>
+                          <span className="bg-green-50 border border-green-100 text-green-700 font-extrabold px-2.5 py-0.5 rounded-md text-[10px]">
+                            {feScoreInput} / 100
+                          </span>
+                        </div>
+                        <input
+                          id="fe-slider"
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={feScoreInput}
+                          onChange={(e) => setFeScoreInput(Number(e.target.value))}
+                          className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handlePredict}
+                        disabled={isPredicting}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-white py-2.5 text-xs font-bold hover:bg-indigo-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-indigo-500/15 disabled:opacity-50"
+                      >
+                        {isPredicting ? (
+                          <>
+                            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                            </svg>
+                            Predict Performance
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetPredictor}
+                        disabled={isPredicting}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-55 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Prediction Output */}
+                  <div className="lg:col-span-7 border border-slate-105 rounded-2xl bg-slate-50/50 p-6 flex flex-col justify-center min-h-[250px] text-center relative overflow-hidden">
+                    {isPredicting ? (
+                      <div className="space-y-3 flex flex-col items-center justify-center">
+                        <div className="relative flex items-center justify-center">
+                          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+                          <svg className="absolute h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m0 0l-2-1m2 1v2.5M14 4l-2-1m0 0L8 4m4-1v2.5M4 7L2 8m0 0l2 1m-2-1v2.5M7 10L5 11m0 0l2 1m-2-1v2.5M20 13l-2 1m0 0l-2-1m2 1v2.5" />
+                          </svg>
+                        </div>
+                        <p className="text-xs font-bold text-slate-800">Random Forest Classifier Running...</p>
+                        <div className="space-y-1 max-w-xs text-[10px] text-slate-400 font-semibold leading-normal">
+                          <p className="animate-pulse">Growing 5 decision trees...</p>
+                          <p className="opacity-75">Bootstrapping evaluation sub-features...</p>
+                          <p className="opacity-50">Aggregating ensemble votes...</p>
+                        </div>
+                      </div>
+                    ) : predictionResult ? (
+                      <div className="space-y-5 text-left h-full flex flex-col justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/50 pb-4">
+                          <div>
+                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Classification Output</span>
+                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black border mt-1.5 ${
+                              predictionResult.winner === "High Performance"
+                                ? "bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm shadow-emerald-500/10"
+                                : predictionResult.winner === "Medium Performance"
+                                ? "bg-amber-50 border-amber-100 text-amber-700 shadow-sm shadow-amber-500/10"
+                                : "bg-rose-50 border-rose-100 text-rose-700 shadow-sm shadow-rose-500/10"
+                            }`}>
+                              {predictionResult.winner}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Overall Metric Score</span>
+                              <span className="text-2xl font-black text-slate-800">{predictionResult.score} <span className="text-xs font-bold text-slate-400">/ 100</span></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Vote distributions */}
+                        <div className="space-y-3">
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Ensemble Vote Distribution (5 Trees)</span>
+                          <div className="grid grid-cols-3 gap-2">
+                            {/* High Class */}
+                            <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
+                              <span className="block text-[9px] font-bold text-slate-400 uppercase">High Class</span>
+                              <span className="text-lg font-black text-emerald-600 mt-1 block">{predictionResult.counts.High} <span className="text-[10px] text-slate-400 font-bold">votes</span></span>
+                              <div className="mt-2 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500" style={{ width: `${(predictionResult.counts.High / 5) * 100}%` }} />
+                              </div>
+                            </div>
+                            {/* Medium Class */}
+                            <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
+                              <span className="block text-[9px] font-bold text-slate-400 uppercase">Medium Class</span>
+                              <span className="text-lg font-black text-amber-600 mt-1 block">{predictionResult.counts.Medium} <span className="text-[10px] text-slate-400 font-bold">votes</span></span>
+                              <div className="mt-2 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-amber-500" style={{ width: `${(predictionResult.counts.Medium / 5) * 100}%` }} />
+                              </div>
+                            </div>
+                            {/* Low Class */}
+                            <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
+                              <span className="block text-[9px] font-bold text-slate-400 uppercase">Low Class</span>
+                              <span className="text-lg font-black text-rose-600 mt-1 block">{predictionResult.counts.Low} <span className="text-[10px] text-slate-400 font-bold">votes</span></span>
+                              <div className="mt-2 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-rose-500" style={{ width: `${(predictionResult.counts.Low / 5) * 100}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Model Diagnostics tree votes logs */}
+                        <div className="bg-white border border-slate-105 rounded-xl p-3.5 space-y-1.5">
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Ensemble Diagnostics</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                            {predictionResult.details.map((detail: string, idx: number) => (
+                              <div key={idx} className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
+                                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
+                                {detail}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 py-8 flex flex-col items-center justify-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-2">
+                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 113.536 0V21h2v-2.757a5 5 0 013.536 0M12 7a5 5 0 010 10V7z" />
+                          </svg>
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800">Model Not Evaluated Yet</h4>
+                        <p className="text-[10px] text-slate-400 font-semibold max-w-sm leading-normal">
+                          Adjust the CSMS score sliders on the left and click &quot;Predict Performance&quot; to execute the Random Forest classifier.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
 

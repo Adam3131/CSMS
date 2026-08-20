@@ -12,6 +12,7 @@ export interface DocumentItem {
   nilai?: string;
   fileName?: string;
   filePath?: string;
+  remarks?: string;
 }
 
 const DEFAULT_DOCUMENTS: DocumentItem[] = [
@@ -151,6 +152,7 @@ export async function getDocuments(): Promise<DocumentItem[]> {
       nilai: item.nilai || undefined,
       fileName: item.file_name || undefined,
       filePath: item.file_path || undefined,
+      remarks: item.remarks || undefined,
     }));
   } catch (err) {
     console.error("Error in getDocuments:", err);
@@ -384,10 +386,10 @@ export async function deleteDocument(no: number): Promise<DocumentItem[]> {
   }
 }
 
-export async function updateDocumentStatus(no: number, status: string): Promise<boolean> {
+export async function updateDocumentStatus(no: number, status: string, remarks?: string): Promise<boolean> {
   if (!isSupabaseConfigured) {
     const current = getLocalDocuments();
-    const updated = current.map((doc) => doc.no === no ? { ...doc, status: status as any } : doc);
+    const updated = current.map((doc) => doc.no === no ? { ...doc, status: status as any, remarks } : doc);
     saveLocalDocuments(updated);
     return true;
   }
@@ -395,13 +397,13 @@ export async function updateDocumentStatus(no: number, status: string): Promise<
   try {
     const { error } = await supabase
       .from("documents")
-      .update({ status })
+      .update({ status, remarks })
       .eq("no", no);
 
     if (error) {
       console.warn("Failed to update status in Supabase (falling back to localStorage):", error.message);
       const current = getLocalDocuments();
-      const updated = current.map((doc) => doc.no === no ? { ...doc, status: status as any } : doc);
+      const updated = current.map((doc) => doc.no === no ? { ...doc, status: status as any, remarks } : doc);
       saveLocalDocuments(updated);
       return false;
     }
